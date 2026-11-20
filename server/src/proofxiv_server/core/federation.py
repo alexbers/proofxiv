@@ -1051,7 +1051,9 @@ async def _on_paper_version(
         )
     ).scalar_one_or_none()
     if fed is not None and body.version == fed.version:
-        # the feed read again: only the matching and the scope (the catalog may have grown)
+        # the feed read again: the problem keys (an older lab gave no areas), the matching (our
+        # catalog may have grown) and the scope
+        fed.problems = [k.model_dump(mode="json") for k in body.problems]
         fed.problem_ids = [str(p.id) for p in mapping.values()]
         fed.in_scope = await _in_scope(session, peer, fed)
         return

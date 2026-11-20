@@ -594,6 +594,7 @@ async def test_a_small_lab_takes_only_its_areas(transport):
     it does not have; with a minimum level, only once the big lab brought them there. The rest is
     listed and counted, and nothing of it is downloaded or checked here."""
     from proofxiv_server.core import federation
+    from proofxiv_server.db.session import sessionmaker
 
     owner = await login(transport, "owner")
     anon = Api(transport)
@@ -634,6 +635,18 @@ async def test_a_small_lab_takes_only_its_areas(transport):
     big.publish("level", LevelBody(paper_id=new_id, version=1, level="C3"))
     stats, titles, counts = await pull()
     assert "Scope: a new graph paper" in titles and counts == (4, 1, 3)
+
+    # a lab whose feed gave no areas before its update: reading the feed again picks them up
+    old_id, _ = big.paper("Scope: a graph paper of an older lab", ProblemKey(slug="big-old-graphs", title="An old graph problem"))
+    big.publish("level", LevelBody(paper_id=old_id, version=1, level="C3"))
+    stats, titles, counts = await pull()
+    assert "Scope: a graph paper of an older lab" not in titles
+    big.entries[-2][1]["problems"][0]["domain"] = "combinatorics"  # its paper_version entry, served anew
+    async with sessionmaker()() as s:
+        await federation.rewind(s)
+        await s.commit()
+    stats, titles, counts = await pull()
+    assert "Scope: a graph paper of an older lab" in titles
 
     await owner.post("/owner/statements", json=scope(peer_min_level="C5"), expect=422)
 
