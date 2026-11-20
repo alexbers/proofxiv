@@ -265,6 +265,8 @@ async def test_outbox_is_signed_and_attested(transport):
     assert all(e.verify(public) for e in entries)
     mine = [OutboxEntry.model_validate(e.payload) for e in entries]
     assert any(e.kind == "paper_version" and e.body["paper_id"] == paper_id and e.body["submitter"] == "fedora" for e in mine)
+    # the version comes before its level: a follower applies a level only to a version it has
+    assert [e.kind for e in mine if e.body.get("paper_id") == paper_id][:2] == ["paper_version", "level"]
     journal = await Api(transport).get("/owner/journal")
     assert any(j["action"] == "attest_key" and j["payload"]["public_key"] == public for j in journal)
 

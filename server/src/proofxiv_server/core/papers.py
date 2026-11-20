@@ -208,8 +208,9 @@ async def submit_paper(
         )
     )
     await session.flush()
-    await recompute_paper(session, paper)
+    # the version first: followers apply a level only to the version they already have
     federation.publish_paper_version(session, paper, version, list(problems.values()), principal)
+    await recompute_paper(session, paper)
     audit.record(
         session, principal.id, "paper.submitted", "paper", paper.id, version=version.version
     )
