@@ -273,7 +273,11 @@ class PeerOut(BaseModel):
     last_error: str | None
     last_pulled_at: str | None
     owner_key_fingerprint: str
-    papers: int
+    papers: int = Field(description="papers listed in the lab's outbox so far")
+    papers_in_scope: int = Field(description="of them, inside the scope this instance chose")
+    papers_imported: int = Field(description="of them, imported here (review, full)")
+    domains: list[str] = Field(description="the areas of the scope; empty: problems in this catalog")
+    min_level: str | None = Field(description="only papers at this level at the lab or above")
 
 
 class FederationOut(BaseModel):

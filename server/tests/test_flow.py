@@ -381,9 +381,15 @@ async def test_first_stage_flow(transport):
 
     # --- weekly trusted run ------------------------------------------------------------------
     run = await worker.post("/trusted/weekly-runs", json={"budget": {"anthropic": 1_000_000}})
-    tasks = await worker.post(f"/trusted/weekly-runs/{run['id']}/tasks", json={"limit": 50})
+    wanted = {"novelty_consistency", "confirm_problem", "sync", "digest", "anchor_review"}
+    tasks = []
+    for _ in range(10):  # the queue is shared with the papers of other tests: lease until ours are in
+        batch = await worker.post(f"/trusted/weekly-runs/{run['id']}/tasks", json={"limit": 50})
+        tasks += batch
+        if not batch or (wanted <= {t["kind"] for t in tasks} and by_kind(tasks, "novelty_consistency", paper_id)):
+            break
     kinds = {t["kind"] for t in tasks}
-    assert {"novelty_consistency", "confirm_problem", "sync", "digest", "anchor_review"} <= kinds
+    assert wanted <= kinds
     transcript = await worker.post(
         "/artifacts", files={"file": ("transcript.jsonl", b'{"role": "assistant"}\n', "text/plain")}
     )

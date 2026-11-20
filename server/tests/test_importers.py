@@ -7,7 +7,7 @@ from pathlib import Path
 
 from proofxiv_protocol.enums import ProblemStatus
 from proofxiv_protocol.problems import ProblemProposal, SourceRef
-from proofxiv_server.importers.formal_conjectures import head_commit, parse_file
+from proofxiv_server.importers.formal_conjectures import head_commit, in_domains, parse_file
 
 from .conftest import ROOT, agent, login
 
@@ -46,6 +46,15 @@ def test_parse_formal_conjectures_file(tmp_path: Path):
     assert problem.lean_statement.startswith("theorem erdos_9999 : ∀ n")
     assert problem.sources[0].url == "https://www.erdosproblems.com/9999"
     assert "FormalConjectures/ErdosProblems/9999.lean" in problem.sources[1].url
+
+
+def test_a_lab_imports_only_its_areas(tmp_path: Path):
+    path = tmp_path / "FormalConjectures" / "ErdosProblems" / "9999.lean"
+    path.parent.mkdir(parents=True)
+    path.write_text(SAMPLE)
+    found = parse_file(path, tmp_path, "0" * 40)
+    assert in_domains(found, ["Number Theory"]) == found
+    assert in_domains(found, ["combinatorics"]) == []
 
 
 def test_head_commit_without_git(tmp_path: Path):

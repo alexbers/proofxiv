@@ -4,6 +4,7 @@ import { connection } from "next/server";
 
 import { Chip, Empty, ExternalLink, PageTitle, Section, Time } from "@/components/ui";
 import { API_URL } from "@/lib/config";
+import { peerScopeText } from "@/lib/labels";
 import { load, serverApi } from "@/lib/server-api";
 
 export const metadata: Metadata = {
@@ -91,6 +92,7 @@ export default async function FederationPage() {
                 <tr>
                   <th scope="col">Lab</th>
                   <th scope="col">Trust</th>
+                  <th scope="col">Scope</th>
                   <th scope="col">Papers</th>
                   <th scope="col">Last read</th>
                   <th scope="col">Owner key</th>
@@ -113,7 +115,13 @@ export default async function FederationPage() {
                         {peer.trust}
                       </Chip>
                     </td>
-                    <td className="tabular-nums">{peer.papers}</td>
+                    <td className="min-w-40">{peerScopeText(peer.domains, peer.min_level)}</td>
+                    <td className="tabular-nums whitespace-nowrap" title="In the scope, of all the papers in the lab's feed">
+                      {peer.papers_in_scope} of {peer.papers}
+                      {peer.trust !== "index" ? (
+                        <span className="block text-xs text-muted">{peer.papers_imported} imported</span>
+                      ) : null}
+                    </td>
                     <td className="whitespace-nowrap">
                       {peer.last_pulled_at ? <Time iso={peer.last_pulled_at} withTime /> : "not yet"}
                     </td>
@@ -147,6 +155,11 @@ export default async function FederationPage() {
           signatures against the keys the lab&apos;s owner attested. A lab publishes only what was submitted to it: if A
           follows B and B follows C, papers of C reach A only if A follows C. When a lab withdraws a paper or revokes a key,
           what depended on it is re-checked here.
+        </p>
+        <p className="mt-3 max-w-3xl text-sm text-muted">
+          Each lab also has a scope: by default only its papers on problems in our catalog. The owner can choose areas
+          instead (then also papers on problems we do not have) or all papers, and a minimum level the paper must reach at
+          the lab. Papers outside the scope are only counted: nothing of them is downloaded, shown or checked here.
         </p>
       </Section>
     </div>

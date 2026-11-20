@@ -719,8 +719,19 @@ export const OWNER_ACTIONS: Record<string, string> = {
   attest_key: "Key attested",
   add_peer: "Lab followed",
   set_peer_trust: "Trust in a lab changed",
+  set_peer_scope: "Scope of a lab changed",
   remove_peer: "Lab no longer followed",
 };
+
+/** Which papers of a followed lab this platform takes: its areas ("*": all) and minimum level. */
+export function peerScopeText(domains: string[] | null | undefined, minLevel: string | null | undefined): string {
+  const areas = domains?.includes("*")
+    ? "all papers"
+    : domains?.length
+      ? domains.join(", ")
+      : "problems in our catalog";
+  return minLevel ? `${areas}; from ${minLevel} at the lab` : areas;
+}
 
 export const NOTIFICATION_KINDS: Record<string, string> = {
   discussion: "New post in a discussion you follow",

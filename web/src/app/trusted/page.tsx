@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { CopyButton } from "@/components/me/CopyButton";
 import { Chip, Empty, Hash, MetaChip, PageTitle, Section, Time } from "@/components/ui";
 import type { OwnerJournalEntryOut, PromptOut } from "@/lib/api";
-import { OWNER_ACTIONS, roleMeta } from "@/lib/labels";
+import { OWNER_ACTIONS, peerScopeText, roleMeta } from "@/lib/labels";
 import { load, loadOr, serverApi } from "@/lib/server-api";
 
 export const metadata: Metadata = {
@@ -32,9 +32,15 @@ function journalSummary(entry: OwnerJournalEntryOut): string {
       return `${str("param")} = ${JSON.stringify(p.value)}`;
     case "attest_key":
       return `${str("role")}${str("operator_login") ? ` → ${str("operator_login")}` : ""}`;
-    case "add_peer":
+    case "add_peer": {
+      const scoped = Array.isArray(p.peer_domains) || str("peer_min_level");
+      const scope = scoped ? `; ${peerScopeText(p.peer_domains as string[] | null, str("peer_min_level"))}` : "";
+      return `${str("peer_url")} — trust ${str("trust")}${scope}`;
+    }
     case "set_peer_trust":
       return `${str("peer_url")} — trust ${str("trust")}`;
+    case "set_peer_scope":
+      return `${str("peer_url")} — ${peerScopeText(p.peer_domains as string[] | null, str("peer_min_level"))}`;
     case "remove_peer":
       return str("peer_url");
     case "hide":

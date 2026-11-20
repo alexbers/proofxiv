@@ -13,6 +13,7 @@ from proofxiv_protocol.enums import ProblemStatus
 from proofxiv_protocol.federation import (
     DecisiveReviewBody,
     InstanceInfo,
+    LevelBody,
     OutboxEntry,
     OutboxPage,
     PaperVersionBody,
@@ -389,7 +390,8 @@ async def test_full_trust_imports_machine_checks(transport):
     paper("A theorem the lab's runner did not check", "missing_lemma", lean)
     paper("A result signed without its job", "lab_lemma", None)
     paper("A result signed for other files", "lab_lemma", other)
-    await owner.post("/owner/statements", json=owner_statement(action="add_peer", peer_url=lab.base, peer_owner_key=lab.owner_public, trust="full"))
+    statement = owner_statement(action="add_peer", peer_url=lab.base, peer_owner_key=lab.owner_public, trust="full", peer_domains=["*"])
+    await owner.post("/owner/statements", json=statement)  # all its papers: these name no problem
     async with client_for(lab) as client:
         stats = await federation.pull_due(client=client, force=True)
     assert stats[lab.base]["applied"] == 6
@@ -584,3 +586,77 @@ async def test_large_papers_shrink_pages_and_the_feed_can_be_read_again(transpor
     manifest = json.loads(MANIFEST) | {"claims": claims(600)}
     bundle = make_bundle({"paper.json": json.dumps(manifest), "paper.pdf": b"%PDF large"})
     await fedora.post("/papers", files={"bundle": ("p.tar.gz", bundle, "application/gzip")}, expect=413)
+
+
+async def test_a_small_lab_takes_only_its_areas(transport):
+    """A lab that works in some areas follows a big one. By default (review) it imports only papers
+    on problems in its catalog; with areas, only papers on problems in those areas, also problems
+    it does not have; with a minimum level, only once the big lab brought them there. The rest is
+    listed and counted, and nothing of it is downloaded or checked here."""
+    from proofxiv_server.core import federation
+
+    owner = await login(transport, "owner")
+    anon = Api(transport)
+    _, ours = await _problem("Big.ours", "Scope problem in our catalog")  # combinatorics here
+    graphs = ProblemKey(slug="big-only-graphs", title="A graph problem only the big lab has", domain="combinatorics")
+    primes = ProblemKey(slug="big-only-primes", title="A prime problem only the big lab has", domain="number theory")
+    big = Lab("big.example")
+    big.paper("Scope: on a problem in our catalog", ours)
+    big.paper("Scope: on a graph problem we do not have", graphs)
+    big.paper("Scope: on a prime problem we do not have", primes)
+
+    async def pull() -> tuple[dict[str, Any], set[str], tuple[int, int, int]]:
+        async with client_for(big) as client:
+            stats = (await federation.pull_due(client=client, force=True))[big.base]
+        titles = {p["title"] for p in await anon.get("/papers", params={"limit": 100}) if p["title"].startswith("Scope")}
+        peer = {p["base_url"]: p for p in (await anon.get("/federation"))["peers"]}[big.base]
+        return stats, titles, (peer["papers"], peer["papers_in_scope"], peer["papers_imported"])
+
+    def scope(**fields: Any) -> dict[str, Any]:
+        return owner_statement(action="set_peer_scope", peer_url=big.base, **fields)
+
+    await owner.post("/owner/statements", json=owner_statement(action="add_peer", peer_url=big.base, peer_owner_key=big.owner_public, trust="review"))
+    stats, titles, counts = await pull()
+    assert stats["skipped"] == [] and counts == (3, 1, 1)
+    assert titles == {"Scope: on a problem in our catalog"}
+
+    # areas: combinatorics, also on problems this catalog lacks; imported on the next pull
+    await owner.post("/owner/statements", json=scope(peer_domains=["Combinatorics"]))
+    stats, titles, counts = await pull()
+    assert counts == (3, 2, 2)
+    assert titles == {"Scope: on a problem in our catalog", "Scope: on a graph problem we do not have"}
+
+    # a minimum level: a new paper waits until the big lab brings it to C3
+    await owner.post("/owner/statements", json=scope(peer_domains=["combinatorics"], peer_min_level="C3"))
+    new_id, _ = big.paper("Scope: a new graph paper", graphs)
+    stats, titles, counts = await pull()
+    assert "Scope: a new graph paper" not in titles and counts == (4, 0, 2)  # the imported ones stay
+    big.publish("level", LevelBody(paper_id=new_id, version=1, level="C3"))
+    stats, titles, counts = await pull()
+    assert "Scope: a new graph paper" in titles and counts == (4, 1, 3)
+
+    await owner.post("/owner/statements", json=scope(peer_min_level="C5"), expect=422)
+
+
+async def test_the_outbox_gives_each_problem_its_area(transport):
+    """Followers filter by area: the outbox names the area of each problem, also in entries written
+    before problem keys carried it (filled in from the catalog when served)."""
+    from proofxiv_server.core import federation
+    from proofxiv_server.db.models import FederationEntry
+    from proofxiv_server.db.session import sessionmaker
+
+    federation.init_key()
+    slug, _ = await _problem("Area.problem", "Outbox area problem")
+    fedora = await agent(transport, await login(transport, "fedora-area"), "fedora-area-agent")
+    manifest = json.loads(MANIFEST) | {"title": "A paper with an area", "problem_slugs": [slug]}
+    bundle = make_bundle({"paper.json": json.dumps(manifest), "paper.pdf": b"%PDF area"})
+    paper_id = (await fedora.post("/papers", files={"bundle": ("p.tar.gz", bundle, "application/gzip")}))["paper_id"]
+    before = str(uuid.uuid4())  # an entry written before problem keys carried the area
+    async with sessionmaker()() as s:
+        s.add(FederationEntry(kind="paper_version", body={"paper_id": before, "problems": [{"slug": slug, "title": "t"}]}))
+        await s.commit()
+
+    page = await Api(transport).get("/federation/outbox", params={"after": 0, "limit": 500})
+    bodies = {e["payload"]["body"].get("paper_id"): e["payload"]["body"] for e in page["entries"] if e["payload"]["kind"] == "paper_version"}
+    assert bodies[paper_id]["problems"][0]["domain"] == "combinatorics"
+    assert bodies[before]["problems"][0]["domain"] == "combinatorics"

@@ -17,12 +17,14 @@ Site domain: <proofxiv.example.org>. Files domain: <files.proofxiv.example.org>.
   Both point to the server. No domain? Use <ip-with-dashes>.sslip.io and
   files.<ip-with-dashes>.sslip.io, e.g. 203-0-113-7.sslip.io.
 Owner login: <your-login>. Instance name: <Example Lab>.
+Areas (optional, else all): <combinatorics, graph theory>.
 
 Clone the repository on this machine, read AGENTS.md and follow docs/DEPLOY.md step by step:
 create the owner key here, never on the server; install Docker on the server if it is missing;
-run deploy/setup.sh there; import the formal-conjectures catalog; do the owner steps; follow
-https://proofxiv.org at trust level index with its owner key fingerprint
-0ae4af80fbb162f10bc39a4975cc5669. Following is one-way: change nothing on proofxiv.org.
+run deploy/setup.sh there; import the formal-conjectures catalog (only my areas, if I named
+any); do the owner steps; follow https://proofxiv.org at trust level index with its owner key
+fingerprint 0ae4af80fbb162f10bc39a4975cc5669 (scope: my areas, if I named any). Following is
+one-way: change nothing on proofxiv.org.
 Finish with deploy/check.sh. Then give me the owner sign-in link and a short report: what you
 did, what failed, and what is left for me (locking the owner key, backups).
 ```

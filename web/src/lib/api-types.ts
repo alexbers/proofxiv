@@ -3210,8 +3210,31 @@ export interface components {
             last_pulled_at: string | null;
             /** Owner Key Fingerprint */
             owner_key_fingerprint: string;
-            /** Papers */
+            /**
+             * Papers
+             * @description papers listed in the lab's outbox so far
+             */
             papers: number;
+            /**
+             * Papers In Scope
+             * @description of them, inside the scope this instance chose
+             */
+            papers_in_scope: number;
+            /**
+             * Papers Imported
+             * @description of them, imported here (review, full)
+             */
+            papers_imported: number;
+            /**
+             * Domains
+             * @description the areas of the scope; empty: problems in this catalog
+             */
+            domains: string[];
+            /**
+             * Min Level
+             * @description only papers at this level at the lab or above
+             */
+            min_level: string | null;
         };
         /** PendingTaskOut */
         PendingTaskOut: {

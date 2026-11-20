@@ -37,7 +37,8 @@ def main() -> None:
     )
     fc.add_argument("repo", type=Path)
     fc.add_argument("--limit", type=int, default=None)
-    fc.add_argument("--dry-run", action="store_true", help="only count and print a sample")
+    fc.add_argument("--domain", action="append", default=[], help="only problems in this area (repeat for several)")
+    fc.add_argument("--dry-run", action="store_true", help="only count the problems of each area")
     wat = sub.add_parser("watch", help="run the automatic literature watch now (all sources or some)")
     wat.add_argument("sources", nargs="*", help="formal-conjectures, erdosproblems, palomar, formal-conjectures-pr, github")
     wat.add_argument("--reset", action="store_true", help="forget the sources' cursors first (re-read 45 days of PRs)")
@@ -132,12 +133,18 @@ def main() -> None:
         asyncio.run(seed_demo())
         print("demo data created")
     elif args.cmd == "import-formal-conjectures":
-        from .importers.formal_conjectures import collect
+        from collections import Counter
+
+        from .importers.formal_conjectures import collect, in_domains
         from .seed import import_proposals
 
         proposals = collect(args.repo, args.limit)
+        if args.domain:
+            proposals = in_domains(proposals, args.domain)
         if args.dry_run:
-            print(f"{len(proposals)} open problems; first: {proposals[0].title if proposals else '-'}")
+            for domain, n in Counter(p.domain for p in proposals).most_common():
+                print(f"{n:6}  {domain}")
+            print(f"{len(proposals)} open problems")
         else:
             created = asyncio.run(
                 import_proposals(proposals, ProblemStatus.OPEN, origin="formal-conjectures")

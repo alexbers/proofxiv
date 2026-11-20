@@ -36,6 +36,14 @@ upstream_app = typer.Typer(
 owner_app.add_typer(upstream_app, name="upstream")
 peer_app = typer.Typer(help="ProofXiv labs this instance follows (federation).", no_args_is_help=True)
 owner_app.add_typer(peer_app, name="peer")
+DomainOption = Annotated[
+    list[str] | None,
+    typer.Option("--domain", help="only papers on problems in this area of the lab (repeat for several)"),
+]
+MinLevelOption = Annotated[str | None, typer.Option(help="only papers at this level at the lab or above: C1, C2 or C3")]
+AllOption = Annotated[
+    bool, typer.Option("--all", help="every paper of the lab, also on problems outside this catalog or on none")
+]
 
 
 def _client() -> Client:
@@ -387,9 +395,13 @@ def peer_add(
         str | None,
         typer.Option(help="the owner key fingerprint the lab's owner gave you: checked instead of asking"),
     ] = None,
+    domain: DomainOption = None,
+    min_level: MinLevelOption = None,
+    all_papers: AllOption = False,
 ) -> None:
     """Follow a ProofXiv lab: shows the owner key it publishes; compare its fingerprint with what the
-    lab's owner told you, and confirm. That key becomes the root of trust for everything from the lab."""
+    lab's owner told you, and confirm. That key becomes the root of trust for everything from the lab.
+    Only its papers on problems in this catalog are taken, unless --domain or --all says otherwise."""
     import httpx
 
     info = httpx.get(url.rstrip("/") + "/.well-known/proofxiv", timeout=30).raise_for_status().json()
@@ -408,9 +420,58 @@ def peer_add(
         index = int(typer.prompt("Which owner key do you trust", default="0")) if len(keys_listed) > 1 else 0
         if typer.prompt(f"Follow it with trust '{trust}'? Type yes") != "yes":
             raise typer.Abort()
+    domain = _areas(info["base_url"], domain, all_papers)
     with _owner_client() as client:
-        owner.send(client, _owner_key(), action="add_peer", peer_url=info["base_url"], peer_owner_key=keys_listed[index], trust=trust)
-    typer.echo(f"following {info['base_url']} ({trust}); the jobs loop pulls it every 15 minutes")
+        owner.send(
+            client,
+            _owner_key(),
+            action="add_peer",
+            peer_url=info["base_url"],
+            peer_owner_key=keys_listed[index],
+            trust=trust,
+            peer_domains=domain or None,
+            peer_min_level=min_level,
+        )
+    typer.echo(f"following {info['base_url']} ({trust}{_scope_text(domain, min_level)}); the jobs loop pulls it every 15 minutes")
+
+
+@peer_app.command("scope")
+def peer_scope(url: str, domain: DomainOption = None, min_level: MinLevelOption = None, all_papers: AllOption = False) -> None:
+    """Which of a followed lab's papers this instance takes. Without options: those on problems in
+    this catalog, at any level. Papers that come into the scope are imported on the next pull;
+    papers already imported stay."""
+    domain = _areas(url, domain, all_papers)
+    with _owner_client() as client:
+        owner.send(
+            client, _owner_key(), action="set_peer_scope", peer_url=url.rstrip("/"), peer_domains=domain or [], peer_min_level=min_level
+        )
+    typer.echo(f"{url}: scope {_scope_text(domain, min_level).removeprefix('; ') or 'problems in this catalog'}")
+
+
+def _areas(url: str, domains: list[str] | None, all_papers: bool) -> list[str] | None:
+    if all_papers and domains:
+        raise typer.BadParameter("--all or --domain, not both")
+    if all_papers:
+        return ["*"]  # the server's ALL_AREAS
+    if domains:
+        _check_domains(url, domains)
+    return domains
+
+
+def _scope_text(domains: list[str] | None, min_level: str | None) -> str:
+    parts = (["all papers"] if domains == ["*"] else [f"areas {', '.join(domains)}"] if domains else []) + ([f"from {min_level} at the lab"] if min_level else [])
+    return "; " + "; ".join(parts) if parts else ""
+
+
+def _check_domains(url: str, domains: list[str]) -> None:
+    """The areas must be the lab's own: a misspelt one would silently leave everything out."""
+    import httpx
+
+    known = {d["domain"].casefold(): d["problems"] for d in httpx.get(url.rstrip("/") + "/api/v1/problems/domains", timeout=30).raise_for_status().json()}
+    unknown = [d for d in domains if d.strip().casefold() not in known]
+    if unknown:
+        listed = ", ".join(f"{d} ({n})" for d, n in sorted(known.items(), key=lambda kv: -kv[1]))
+        raise typer.BadParameter(f"{url} has no area {', '.join(unknown)}; its areas: {listed}")
 
 
 @peer_app.command("trust")

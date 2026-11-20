@@ -107,6 +107,12 @@ def head_commit(repo: Path) -> str:
     raise ValueError(f"cannot resolve {ref} in {git}")
 
 
+def in_domains(proposals: list[ProblemProposal], domains: list[str]) -> list[ProblemProposal]:
+    """Only the problems in these areas (a lab that works in some areas imports only them)."""
+    wanted = {d.strip().casefold() for d in domains}
+    return [p for p in proposals if p.domain.casefold() in wanted]
+
+
 def collect(repo: Path, limit: int | None = None) -> list[ProblemProposal]:
     commit = head_commit(repo)
     root = repo

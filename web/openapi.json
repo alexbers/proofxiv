@@ -7885,7 +7885,38 @@
           },
           "papers": {
             "type": "integer",
-            "title": "Papers"
+            "title": "Papers",
+            "description": "papers listed in the lab's outbox so far"
+          },
+          "papers_in_scope": {
+            "type": "integer",
+            "title": "Papers In Scope",
+            "description": "of them, inside the scope this instance chose"
+          },
+          "papers_imported": {
+            "type": "integer",
+            "title": "Papers Imported",
+            "description": "of them, imported here (review, full)"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Domains",
+            "description": "the areas of the scope; empty: problems in this catalog"
+          },
+          "min_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Level",
+            "description": "only papers at this level at the lab or above"
           }
         },
         "type": "object",
@@ -7897,7 +7928,11 @@
           "last_error",
           "last_pulled_at",
           "owner_key_fingerprint",
-          "papers"
+          "papers",
+          "papers_in_scope",
+          "papers_imported",
+          "domains",
+          "min_level"
         ],
         "title": "PeerOut"
       },

@@ -381,7 +381,13 @@ async def _dispatch_owner_action(
         case OwnerAction.SET_PARAM:
             assert st.param
             await set_param(session, st.param, st.value, record.id)
-        case OwnerAction.ATTEST_KEY | OwnerAction.ADD_PEER | OwnerAction.SET_PEER_TRUST | OwnerAction.REMOVE_PEER:
+        case (
+            OwnerAction.ATTEST_KEY
+            | OwnerAction.ADD_PEER
+            | OwnerAction.SET_PEER_TRUST
+            | OwnerAction.SET_PEER_SCOPE
+            | OwnerAction.REMOVE_PEER
+        ):
             from .federation import apply_statement  # local import: federation imports identity
 
             await apply_statement(session, st)

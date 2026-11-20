@@ -100,6 +100,9 @@ cd /opt/proofxiv/deploy
 docker compose run --rm -v /opt/formal-conjectures:/fc:ro api proofxiv-server import-formal-conjectures /fc
 ```
 
+A lab that works in some areas imports only them: add `--domain combinatorics --domain "discrete geometry"`
+(repeat for each area). `--dry-run` lists the areas with the number of problems in each.
+
 A re-import adds only what is missing. After that, the literature watch in the jobs container
 follows formal-conjectures, erdosproblems and the Palomar registry. It records new results as
 literature events, and the weekly run confirms or rejects them.
@@ -123,15 +126,31 @@ The fingerprint is that of the lab's owner key, as the lab's owner gave it to yo
 channel. For proofxiv.org it is `0ae4af80fbb162f10bc39a4975cc5669`. The command refuses a lab
 whose published key has another fingerprint. Without `--fingerprint` it shows the key and asks.
 
-Following is one-way: your instance reads the lab's public feed and changes nothing there. The
-lab's papers appear on the pages of your problems that come from the same catalog (for example
-formal-conjectures, step 4). Papers on problems your catalog does not have are only counted on
-`/federation`: problems themselves do not travel between instances yet.
+Following is one-way: your instance reads the lab's public feed and changes nothing there.
 
-To check the lab's papers here with your own runs instead of only listing them, raise the trust
-and read its feed again: `proofxiv owner peer trust https://proofxiv.org review`, then
-`docker compose exec api proofxiv-server federation pull --from-start`. The same command picks up
-entries that were skipped before an update.
+**Scope.** By default your instance takes only the lab's papers on problems in your own catalog
+(step 4). They appear on the pages of those problems. A lab that works in some areas can name
+the areas instead: then it also takes papers on problems it does not have. It can also set a
+minimum level that a paper must reach at the lab first:
+
+```bash
+proofxiv owner peer scope https://proofxiv.org --domain combinatorics --domain "graph theory" --min-level C3
+```
+
+- **Areas.** They are the lab's own, from its `/api/v1/problems/domains`; the command refuses a
+  misspelt one. `--all` takes every paper, and `peer scope` without options returns to the default.
+- **Outside the scope.** Such papers are only counted on `/federation`: nothing of them is
+  downloaded, shown or checked here.
+- **Coming into the scope.** A paper enters the scope when the scope changes, when the paper
+  reaches the level, or when the trust is raised. It is imported on the next pull. Papers already
+  imported stay when the scope narrows.
+
+The same options work with `peer add`.
+
+To check the lab's papers here with your own runs instead of only listing them, raise the trust:
+`proofxiv owner peer trust https://proofxiv.org review`. The papers in the scope are imported on
+the next pull. Entries skipped before an update that now accepts them are read again with
+`docker compose exec api proofxiv-server federation pull --from-start`.
 Trust levels, what each one imports and the security model are in `docs/FEDERATION.md` (in Russian).
 Leave `PROOFXIV_FEDERATION_FULL_TRUST=false`: the `full` level is not hardened yet.
 

@@ -39,6 +39,7 @@ class OwnerAction(StrEnum):
     ATTEST_KEY = "attest_key"
     ADD_PEER = "add_peer"
     SET_PEER_TRUST = "set_peer_trust"
+    SET_PEER_SCOPE = "set_peer_scope"  # which of the lab's papers this instance takes (areas, level)
     REMOVE_PEER = "remove_peer"
 
 
@@ -61,6 +62,10 @@ class OwnerStatement(BaseModel):
     peer_url: str | None = None
     peer_owner_key: str | None = None
     trust: PeerTrust | None = None
+    # the scope of a followed lab: only papers on problems in these areas (empty: on problems in
+    # this instance's catalog), and only from this level at the lab (C1, C2, C3) on
+    peer_domains: list[str] | None = None
+    peer_min_level: str | None = None
     reason: str = ""
     issued_at: str
     nonce: str
@@ -86,6 +91,7 @@ class OwnerStatement(BaseModel):
             OwnerAction.ATTEST_KEY: ("role", "public_key"),
             OwnerAction.ADD_PEER: ("peer_url", "peer_owner_key", "trust"),
             OwnerAction.SET_PEER_TRUST: ("peer_url", "trust"),
+            OwnerAction.SET_PEER_SCOPE: ("peer_url",),
             OwnerAction.REMOVE_PEER: ("peer_url",),
         }
         missing = [f for f in need[a] if getattr(self, f) in (None, "")]

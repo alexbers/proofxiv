@@ -32,6 +32,7 @@ from urllib.parse import urlparse
 import httpx
 import structlog
 from proofxiv_protocol.enums import (
+    LEVEL_RANK,
     DecisiveTaskKind,
     DecisiveTaskStatus,
     NoveltyStatus,
@@ -72,7 +73,7 @@ from proofxiv_protocol.signing import (
 )
 from proofxiv_protocol.trusted import TrustedResult
 from pydantic import BaseModel
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
@@ -110,6 +111,8 @@ MAX_PROBLEMS = 20  # problems a paper names
 PULL_DEADLINE = 300.0  # seconds for one peer's pull, whatever its server does
 PAGE = 100  # outbox entries asked for at once; fewer when a page is larger than MAX_JSON_BYTES
 PAGES_PER_PULL = 20
+_RANK = {level.value: rank for level, rank in LEVEL_RANK.items()}  # "C1" -> 1: the levels a scope can ask for
+ALL_AREAS = "*"  # a scope's area that takes every paper of the lab
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 REVIEW_TASK_KINDS = {
     DecisiveTaskKind.NOVELTY_CONSISTENCY,
@@ -169,7 +172,9 @@ def publish(session: AsyncSession, kind: OutboxKind, body: BaseModel) -> None:
 
 
 def problem_key(problem: Problem) -> ProblemKey:
-    return ProblemKey(slug=problem.slug, title=problem.title, variant=problem.variant, upstream=problem.upstream)
+    return ProblemKey(
+        slug=problem.slug, title=problem.title, variant=problem.variant, upstream=problem.upstream, domain=problem.domain or None
+    )
 
 
 def _paper_url(paper_id: uuid.UUID) -> str:
@@ -280,10 +285,23 @@ async def outbox_page(session: AsyncSession, after: int, limit: int) -> OutboxPa
         ).scalars()
     }
 
+    # entries written before problem keys carried the area get it from the catalog (signed when served)
+    slugs = {
+        str(k.get("slug"))
+        for row in rows
+        if row.kind == OutboxKind.PAPER_VERSION.value
+        for k in row.body.get("problems") or []
+        if isinstance(k, dict) and "domain" not in k
+    }
+    areas = dict((await session.execute(select(Problem.slug, Problem.domain).where(Problem.slug.in_(slugs)))).all()) if slugs else {}
+
     def served(row: FederationEntry) -> tuple[OutboxKind, dict[str, Any]]:
         paper_id = str(row.body.get("paper_id"))
         if paper_id in hidden and row.kind != OutboxKind.WITHDRAWAL.value:
             return OutboxKind.WITHDRAWAL, WithdrawalBody(paper_id=paper_id, hidden=True).model_dump(mode="json")
+        if row.kind == OutboxKind.PAPER_VERSION.value and any("domain" not in k for k in row.body.get("problems") or []):
+            problems = [k if "domain" in k else {**k, "domain": areas.get(k.get("slug")) or None} for k in row.body["problems"]]
+            return OutboxKind(row.kind), {**row.body, "problems": problems}
         return OutboxKind(row.kind), row.body
 
     entries = []
@@ -397,8 +415,14 @@ async def apply_statement(session: AsyncSession, st: OwnerStatement) -> None:
                 raise Invalid("an instance does not follow itself")
             peer = (await session.execute(select(Peer).where(Peer.base_url == url))).scalar_one_or_none()
             if peer is None:
-                session.add(Peer(base_url=url, owner_key=st.peer_owner_key, trust=st.trust, status="new"))
+                domains, level = _scope(st)
+                session.add(
+                    Peer(base_url=url, owner_key=st.peer_owner_key, trust=st.trust, status="new", domains=domains, min_level=level)
+                )
                 return
+            if st.peer_domains is not None or st.peer_min_level is not None:
+                peer.domains, peer.min_level = _scope(st)
+                await _rescope(session, peer)
             if peer.owner_key != st.peer_owner_key:
                 # a new root of trust: what the old owner key attested no longer counts
                 await _reclaim(session, peer)
@@ -413,6 +437,11 @@ async def apply_statement(session: AsyncSession, st: OwnerStatement) -> None:
             if peer.trust is PeerTrust.FULL and st.trust is not PeerTrust.FULL:
                 await _reclaim(session, peer)
             peer.trust = st.trust
+        case OwnerAction.SET_PEER_SCOPE:
+            assert st.peer_url
+            peer = await _peer(session, st.peer_url)
+            peer.domains, peer.min_level = _scope(st)
+            await _rescope(session, peer)  # what came into the scope is imported on the next pull
         case OwnerAction.REMOVE_PEER:
             assert st.peer_url
             peer = await _peer(session, st.peer_url)
@@ -420,6 +449,24 @@ async def apply_statement(session: AsyncSession, st: OwnerStatement) -> None:
                 await _reclaim(session, peer)
             peer.removed_at = now()
             peer.status = "removed"
+
+
+def _scope(st: OwnerStatement) -> tuple[list[str], str | None]:
+    """The areas (case-folded) and the minimum level of a statement's scope; none: no filter."""
+    domains = sorted({d.strip().casefold() for d in st.peer_domains or [] if d.strip()})
+    if len(domains) > 50 or any(len(d) > 80 for d in domains):
+        raise Invalid("at most 50 areas of at most 80 characters each")
+    level = (st.peer_min_level or "").strip().upper() or None
+    if level not in (None, "C1", "C2", "C3"):
+        raise Invalid("the minimum level is C1, C2 or C3")
+    return domains, level
+
+
+async def _rescope(session: AsyncSession, peer: Peer) -> None:
+    """The scope changed: which of the papers listed so far are inside it now. Papers already
+    imported stay here; nothing is downloaded in a statement."""
+    for fed in (await session.execute(select(FederatedPaper).where(FederatedPaper.peer_id == peer.id))).scalars():
+        fed.in_scope = await _in_scope(session, peer, fed)
 
 
 def _trust_allowed(trust: PeerTrust) -> None:
@@ -679,9 +726,14 @@ async def pull_peer(
                 # files, a malformed body): skip it and keep the reason
                 skipped.append(_clean(f"entry {entry.seq} ({entry.kind.value}): {exc or type(exc).__name__}", 500))
             peer.cursor = entry.seq
+            if entry.kind in (OutboxKind.PAPER_VERSION, OutboxKind.LEVEL):
+                # right away, so that the lab's reviews that follow find the paper here
+                skipped += await _import_due(session, peer, info, client, allowed, str(entry.body.get("paper_id")))
             await session.commit()
         if page.next_after >= page.last_seq:
             break
+    skipped += await _import_due(session, peer, info, client, allowed)  # the scope or the trust changed
+    await session.commit()
     return {"applied": applied, "skipped": skipped, "cursor": peer.cursor}
 
 
@@ -904,12 +956,13 @@ async def _apply(
     if isinstance(body, LevelBody):
         if body.version == fed.version:
             fed.level = body.level
+            fed.in_scope = await _in_scope(session, peer, fed)  # a minimum level may be reached now
         return
     if isinstance(body, WithdrawalBody):
         await _on_withdrawal(session, peer, fed, body)
         return
-    if fed.paper_id is None or body.version != fed.version:
-        return
+    if fed.paper_id is None or body.version != fed.version or fed.imported_version != fed.version:
+        return  # about a version that is not here (outside the scope, or not imported yet)
     paper = await session.get(Paper, fed.paper_id)
     if paper is None or paper.origin_peer_id != peer.id:
         return  # only the copy this lab's entry created, never a paper submitted here
@@ -997,53 +1050,115 @@ async def _on_paper_version(
             select(FederatedPaper).where(FederatedPaper.peer_id == peer.id, FederatedPaper.remote_id == body.paper_id)
         )
     ).scalar_one_or_none()
-    if fed is not None and body.version == fed.version and (fed.paper_id is not None or peer.trust is PeerTrust.INDEX):
-        return  # here already (the feed read again); a listed paper is imported once the trust is raised
+    if fed is not None and body.version == fed.version:
+        # the feed read again: only the matching and the scope (the catalog may have grown)
+        fed.problem_ids = [str(p.id) for p in mapping.values()]
+        fed.in_scope = await _in_scope(session, peer, fed)
+        return
     if fed is not None and body.version < fed.version:
         raise Invalid(f"version {body.version} is older than version {fed.version} here")
     audit.record(session, None, "federation.paper", "peer", peer.id, peer=peer.base_url, remote=body.paper_id)
+    if fed is None:
+        fed = FederatedPaper(peer_id=peer.id, remote_id=body.paper_id, withdrawn=False)
+        session.add(fed)
+    fed.version = body.version
+    fed.title = str(body.manifest.get("title", ""))[:300]
+    fed.abstract = str(body.manifest.get("abstract", ""))[:5000]
+    fed.url = body.url
+    fed.manifest, fed.files = body.manifest, body.files
+    fed.problems = [k.model_dump(mode="json") for k in body.problems]
+    fed.problem_ids = [str(p.id) for p in mapping.values()]
+    fed.submitted_at = _aware(datetime.fromisoformat(body.submitted_at))
+    fed.sender = {"submitter": body.submitter, "agent_name": body.agent_name, "agent_model": body.agent_model}
+    fed.level, fed.import_error = None, None
+    fed.in_scope = await _in_scope(session, peer, fed)
+    # imported (review, full) right after this entry, by _import_due, when inside the scope
 
-    def listed(target: FederatedPaper) -> None:
-        target.version = body.version
-        target.title = str(body.manifest.get("title", ""))[:300]
-        target.abstract = str(body.manifest.get("abstract", ""))[:5000]
-        target.url = body.url
-        target.manifest, target.files = body.manifest, body.files
-        target.problems = [k.model_dump(mode="json") for k in body.problems]
-        target.problem_ids = [str(p.id) for p in mapping.values()]
-        target.submitted_at = _aware(datetime.fromisoformat(body.submitted_at))
-        target.level = None
 
-    if peer.trust is PeerTrust.INDEX:
-        if fed is None:
-            fed = FederatedPaper(peer_id=peer.id, remote_id=body.paper_id, withdrawn=False)
-            session.add(fed)
-        listed(fed)
-        return
+async def _in_scope(session: AsyncSession, peer: Peer, fed: FederatedPaper) -> bool:
+    """Whether the follower takes this paper: on a problem in one of the peer's areas (by the area
+    the lab gives, or ours for a problem we have), else on a problem in our catalog; and at or
+    above the peer's minimum level at the lab."""
+    if peer.min_level and _RANK.get(fed.level or "", -1) < _RANK[peer.min_level]:
+        return False
+    if not peer.domains:
+        return bool(fed.problem_ids)
+    if ALL_AREAS in peer.domains:
+        return True  # everything the lab publishes, also papers that name no problem
+    areas = {str(k.get("domain") or "").casefold() for k in fed.problems if isinstance(k, dict)}
+    if fed.problem_ids:
+        ours = await session.execute(
+            select(Problem.domain).where(Problem.id.in_([uuid.UUID(i) for i in fed.problem_ids]))
+        )
+        areas |= {d.casefold() for d in ours.scalars() if d}
+    return bool(areas & set(peer.domains))
+
+
+async def _import(
+    session: AsyncSession, peer: Peer, info: InstanceInfo, fed: FederatedPaper, client: httpx.AsyncClient, allowed: set[str]
+) -> None:
+    """Submit the listed version here, as the lab's shadow operator: our checks follow."""
     from .papers import submit_paper  # local import: papers imports much of the core
 
-    principal = await _shadow(session, peer, body.submitter, body.agent_name, body.agent_model)
-    files = await _download(client, peer, info, body.files, allowed)
-    manifest = _local_manifest(body.manifest, mapping)
-    note = f"from {peer.name or peer.base_url} ({body.url}), version {body.version} there"
+    mapping = await _match_problems(session, [ProblemKey.model_validate(k) for k in fed.problems])
+    fed.problem_ids = [str(p.id) for p in mapping.values()]
+    sender = fed.sender or {}
+    principal = await _shadow(
+        session, peer, str(sender.get("submitter") or "unknown"), sender.get("agent_name"), sender.get("agent_model")
+    )
+    files = await _download(client, peer, info, fed.files, allowed)
+    manifest = _local_manifest(fed.manifest, mapping)
+    note = f"from {peer.name or peer.base_url} ({fed.url}), version {fed.version} there"
     try:
         async with session.begin_nested():
-            result = await submit_paper(
-                session, principal, manifest, files, paper_id=fed.paper_id if fed else None, notes=note, origin=peer
-            )
+            result = await submit_paper(session, principal, manifest, files, paper_id=fed.paper_id, notes=note, origin=peer)
         local_id = result.paper.id
     except Conflict as exc:
         # the same bundle is already here: a first version submitted to both labs is linked to the
         # paper here (nothing imported); any other duplicate is refused
         existing = exc.details.get("paper_id")
-        if fed is not None or not existing:
+        if fed.paper_id is not None or not existing:
             raise Invalid("this version is identical to a paper already here") from exc
         local_id = uuid.UUID(str(existing))
-    if fed is None:
-        fed = FederatedPaper(peer_id=peer.id, remote_id=body.paper_id, withdrawn=False)
-        session.add(fed)
-    listed(fed)  # only now: reviews are checked against the version that was actually imported
-    fed.paper_id = local_id
+    fed.paper_id, fed.imported_version = local_id, fed.version
+
+
+async def _import_due(
+    session: AsyncSession,
+    peer: Peer,
+    info: InstanceInfo,
+    client: httpx.AsyncClient,
+    allowed: set[str],
+    remote_id: str | None = None,
+    limit: int = PAPERS_PER_PULL,
+) -> list[str]:
+    """Import the listed versions inside the scope that are not here yet (one paper, or any: after
+    a level rose to the minimum, the scope changed or the trust was raised). A refused import is
+    noted on the paper and not tried again until a new version; returns the reasons."""
+    if peer.trust is PeerTrust.INDEX:
+        return []
+    query = select(FederatedPaper).where(
+        FederatedPaper.peer_id == peer.id,
+        FederatedPaper.in_scope.is_(True),
+        FederatedPaper.withdrawn.is_(False),
+        FederatedPaper.import_error.is_(None),
+        or_(FederatedPaper.imported_version.is_(None), FederatedPaper.imported_version < FederatedPaper.version),
+    )
+    if remote_id is not None:
+        query = query.where(FederatedPaper.remote_id == remote_id)
+    refused = []
+    for fed in list((await session.execute(query.order_by(FederatedPaper.created_at).limit(limit))).scalars()):
+        fed_id, about = fed.id, f"paper {fed.remote_id} v{fed.version}"  # fed expires if the savepoint rolls back
+        try:
+            async with session.begin_nested():
+                await _import(session, peer, info, fed, client, allowed)
+        except (PullError, httpx.HTTPError):
+            raise  # the network or the lab's server: tried again on the next pull
+        except Exception as exc:
+            reason = _clean(str(exc) or type(exc).__name__, 1000)
+            await session.execute(update(FederatedPaper).where(FederatedPaper.id == fed_id).values(import_error=reason))
+            refused.append(_clean(f"{about} not imported: {reason}", 500))
+    return refused
 
 
 async def _on_run(session: AsyncSession, peer: Peer, paper: Paper, body: RunResultBody) -> None:
@@ -1259,7 +1374,11 @@ async def papers_for_problem(session: AsyncSession, problem_id: uuid.UUID) -> li
     rows = await session.execute(
         select(FederatedPaper, Peer)
         .join(Peer, Peer.id == FederatedPaper.peer_id)
-        .where(FederatedPaper.problem_ids.contains([str(problem_id)]), Peer.removed_at.is_(None))
+        .where(
+            FederatedPaper.problem_ids.contains([str(problem_id)]),
+            FederatedPaper.in_scope.is_(True),
+            Peer.removed_at.is_(None),
+        )
         .order_by(FederatedPaper.submitted_at)
         .limit(50)
     )
@@ -1299,13 +1418,19 @@ async def origin_of(session: AsyncSession, paper: Paper) -> dict[str, Any] | Non
 
 async def overview(session: AsyncSession) -> dict[str, Any]:
     info = instance_info()
-    counts = dict(
-        (
+    counts = {
+        peer_id: (total, in_scope, imported)
+        for peer_id, total, in_scope, imported in (
             await session.execute(
-                select(FederatedPaper.peer_id, func.count()).group_by(FederatedPaper.peer_id)
+                select(
+                    FederatedPaper.peer_id,
+                    func.count(),
+                    func.count().filter(FederatedPaper.in_scope.is_(True)),
+                    func.count(FederatedPaper.paper_id),
+                ).group_by(FederatedPaper.peer_id)
             )
         ).all()
-    )
+    }
     peers = (await session.execute(select(Peer).where(Peer.removed_at.is_(None)).order_by(Peer.created_at))).scalars()
     outbox = (await session.execute(select(func.max(FederationEntry.seq)))).scalar_one() or 0
     return {
@@ -1322,7 +1447,11 @@ async def overview(session: AsyncSession) -> dict[str, Any]:
                 "last_error": p.last_error,
                 "last_pulled_at": p.last_pulled_at.isoformat() if p.last_pulled_at else None,
                 "owner_key_fingerprint": key_fingerprint(p.owner_key),
-                "papers": counts.get(p.id, 0),
+                "papers": counts.get(p.id, (0, 0, 0))[0],
+                "papers_in_scope": counts.get(p.id, (0, 0, 0))[1],
+                "papers_imported": counts.get(p.id, (0, 0, 0))[2],
+                "domains": list(p.domains or []),
+                "min_level": p.min_level,
             }
             for p in peers
         ],

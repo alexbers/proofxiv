@@ -27,9 +27,13 @@ def sent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[tuple[dict, di
         owner, "send", lambda client, _key, **fields: statements.append((dict(client.http.headers), fields))
     )
     card = {"name": "Lab", "base_url": "https://lab.example", "owner_keys": [LAB_PUBLIC]}
-    monkeypatch.setattr(
-        httpx, "get", lambda url, timeout: httpx.Response(200, json=card, request=httpx.Request("GET", url))
-    )
+    areas = [{"domain": "combinatorics", "problems": 451}, {"domain": "number theory", "problems": 883}]
+
+    def get(url: str, timeout: float) -> httpx.Response:
+        body = areas if url.endswith("/api/v1/problems/domains") else card
+        return httpx.Response(200, json=body, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx, "get", get)
     return statements
 
 
@@ -40,7 +44,14 @@ def test_peer_add_with_fingerprint_needs_no_token(sent):
     assert result.exit_code == 0, result.output
     [(headers, fields)] = sent
     assert "authorization" not in {h.lower() for h in headers}
-    assert fields == {"action": "add_peer", "peer_url": "https://lab.example", "peer_owner_key": LAB_PUBLIC, "trust": "index"}
+    assert fields == {
+        "action": "add_peer",
+        "peer_url": "https://lab.example",
+        "peer_owner_key": LAB_PUBLIC,
+        "trust": "index",
+        "peer_domains": None,  # the default scope: papers on problems in this catalog
+        "peer_min_level": None,
+    }
 
 
 def test_peer_add_refuses_another_fingerprint(sent):
@@ -51,6 +62,23 @@ def test_peer_add_refuses_another_fingerprint(sent):
     assert result.exit_code != 0
     assert "no owner key" in result.output
     assert sent == []
+
+
+def test_scope_takes_the_lab_areas_only(sent):
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["owner", "peer", "scope", "https://lab.example", "--domain", "Combinatorics", "--min-level", "C3"])
+    assert result.exit_code == 0, result.output
+    assert sent[-1][1] | {"peer_url": None} == {
+        "action": "set_peer_scope", "peer_url": None, "peer_domains": ["Combinatorics"], "peer_min_level": "C3"
+    }
+    # a misspelt area would leave everything out: refused, with the lab's areas listed
+    result = runner.invoke(cli.app, ["owner", "peer", "scope", "https://lab.example", "--domain", "combinatoric"])
+    assert result.exit_code != 0 and "combinatorics (451)" in result.output
+    result = runner.invoke(cli.app, ["owner", "peer", "scope", "https://lab.example", "--all"])
+    assert result.exit_code == 0 and sent[-1][1]["peer_domains"] == ["*"]
+    result = runner.invoke(cli.app, ["owner", "peer", "scope", "https://lab.example"])
+    assert result.exit_code == 0 and sent[-1][1]["peer_domains"] == [] and "problems in this catalog" in result.output
+    assert len(sent) == 3
 
 
 def test_attest_key_needs_no_token(sent):

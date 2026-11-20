@@ -58,6 +58,7 @@ class ProblemKey(BaseModel):
     title: str = Field(max_length=300)
     variant: str | None = Field(default=None, max_length=200)
     upstream: dict[str, Any] | None = None
+    domain: str | None = Field(default=None, max_length=80, description="the area, for a follower's filter")
 
 
 class PaperVersionBody(BaseModel):

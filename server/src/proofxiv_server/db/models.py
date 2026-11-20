@@ -700,6 +700,10 @@ class Peer(IdMixin, CreatedMixin, Base):
     name: Mapped[str] = mapped_column(String(200), default="")
     owner_key: Mapped[str] = mapped_column(String(64))
     trust: Mapped[PeerTrust] = mapped_column(enum_type(PeerTrust))
+    # the scope (set_peer_scope): papers on problems in these areas, else on problems in this
+    # catalog; and only from this level at the lab on
+    domains: Mapped[list[Any]] = mapped_column(default=list)
+    min_level: Mapped[str | None] = mapped_column(String(4))
     cursor: Mapped[int] = mapped_column(BigInteger, default=0)
     status: Mapped[str] = mapped_column(String(40), default="new")
     last_error: Mapped[str | None] = mapped_column(Text)
@@ -743,7 +747,11 @@ class FederatedPaper(IdMixin, CreatedMixin, Base):
     problem_ids: Mapped[list[str]] = mapped_column(default=list)  # matched local problems
     submitted_at: Mapped[datetime | None]
     withdrawn: Mapped[bool] = mapped_column(Boolean, default=False)
+    in_scope: Mapped[bool] = mapped_column(Boolean, default=True)  # inside the peer's scope
+    sender: Mapped[dict[str, Any]] = mapped_column(default=dict)  # submitter and agent at the lab
+    import_error: Mapped[str | None] = mapped_column(Text)  # why an import was refused (not retried)
     paper_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("papers.id"), index=True)
+    imported_version: Mapped[int | None] = mapped_column(Integer)  # the lab's version the local copy has
 
     __table_args__ = (UniqueConstraint("peer_id", "remote_id"),)
 
