@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "the zero polynomial is not positive", "coefficients": ["0"], "interval": ["0", "1"]}

@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "the only 4-set has triples of both colours", "n": 4, "k": 3, "forbidden_sizes": [4, 4], "colouring": "gA=="}

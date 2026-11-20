@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "the R(4,4;3) > 11 colouring with the triple [0, 1, 2] recoloured", "n": 11, "k": 3, "forbidden_sizes": [4, 4], "colouring": "6ouHF3lR5pZ5wV8JJzpbR+CuNtzA"}

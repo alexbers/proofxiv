@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "P(0) = 0, strict positivity fails", "coefficients": ["0", "1"], "interval": ["0", "1"]}

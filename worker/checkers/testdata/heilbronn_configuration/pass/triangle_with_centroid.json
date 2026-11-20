@@ -1,0 +1,1 @@
+{"type": "heilbronn_configuration", "comment": "vertices and centroid", "region": "unit_triangle", "points": [["0", "0"], ["1", "0"], ["0", "1"], ["1/3", "1/3"]], "min_area": "1/6"}

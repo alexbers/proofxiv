@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "every 4-subset has colour 1, so [6] itself is monochromatic", "n": 6, "k": 4, "forbidden_sizes": [5, 6], "colouring": "//4="}

@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "forbidden sizes larger than n are vacuously avoided", "n": 6, "k": 3, "forbidden_sizes": [7, 8], "colouring": "AAAA"}

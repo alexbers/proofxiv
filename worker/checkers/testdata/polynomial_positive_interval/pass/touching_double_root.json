@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "(x - 1/2)^2 >= 0 on [0, 1]", "coefficients": ["1/4", "-1", "1"], "interval": ["0", "1"], "strict": false}

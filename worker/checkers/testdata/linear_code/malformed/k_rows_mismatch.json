@@ -1,0 +1,1 @@
+{"type": "linear_code", "comment": "k = 5 but 4 rows", "field": {"p": 2}, "n": 7, "k": 5, "generator_matrix": [[1, 0, 0, 0, 0, 1, 1], [0, 1, 0, 0, 1, 0, 1], [0, 0, 1, 0, 1, 1, 0], [0, 0, 0, 1, 1, 1, 1]], "minimum_distance": 3}

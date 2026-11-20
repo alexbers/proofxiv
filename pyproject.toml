@@ -1,0 +1,52 @@
+[project]
+name = "proofxiv-dev"
+version = "0.1.0"
+description = "ProofXiv development workspace (protocol, server, worker)"
+requires-python = ">=3.12"
+dependencies = ["proofxiv-protocol", "proofxiv-server", "proofxiv-worker"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["protocol", "server", "worker"]
+
+[tool.uv.sources]
+proofxiv-protocol = { workspace = true }
+proofxiv-server = { workspace = true }
+proofxiv-worker = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "pyright>=1.1.390",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["server/migrations/versions", "import/our19/papers"]  # papers ship their own research code
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["protocol/tests", "server/tests", "worker/tests"]
+# temporary files of tests stay inside the repository, never in /tmp
+addopts = "--basetemp=.dev/pytest-tmp"
+markers = [
+    "slow: real-data checker certificates (run with -m slow)",
+]
+
+[tool.pyright]
+include = ["protocol/src", "server/src", "worker/src"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "standard"

@@ -1,0 +1,1 @@
+{"type": "regular_graph_girth", "comment": "a loop is not allowed", "n": 3, "degree": 2, "girth": 3, "edges": [[0, 1], [1, 2], [2, 2]]}

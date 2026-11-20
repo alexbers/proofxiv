@@ -1,0 +1,1 @@
+{"type": "covering_code", "comment": "seven words covering F_2^5 at radius 1 (found by exhaustive search; K(5,1) = 7)", "n": 5, "radius": 1, "codewords": ["00000", "10000", "01000", "11110", "11101", "11011", "00111"]}

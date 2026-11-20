@@ -1,0 +1,1 @@
+{"type": "covering_code", "comment": "removing a codeword of a perfect code leaves 8 words uncovered", "n": 7, "radius": 1, "codewords": ["0001111", "0010110", "0011001", "0100101", "0101010", "0110011", "0111100", "1000011", "1001100", "1010101", "1011010", "1100110", "1101001", "1110000", "1111111"]}

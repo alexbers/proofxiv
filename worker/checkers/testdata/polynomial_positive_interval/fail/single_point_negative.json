@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "P(1/2) = -3/4", "coefficients": ["-1", "0", "1"], "interval": ["1/2", "1/2"], "strict": false}

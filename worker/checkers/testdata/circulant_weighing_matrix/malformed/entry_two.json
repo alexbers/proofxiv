@@ -1,0 +1,1 @@
+{"type": "circulant_weighing_matrix", "comment": "entries must be -1, 0, 1", "n": 7, "weight": 4, "first_row": [-1, 2, 1, 0, 1, 0, 0]}

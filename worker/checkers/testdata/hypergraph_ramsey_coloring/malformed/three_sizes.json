@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "exactly two sizes are required", "n": 5, "k": 2, "forbidden_sizes": [3, 3, 3], "colouring": "WYA="}

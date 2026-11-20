@@ -1,0 +1,1 @@
+{"type": "graph_ramsey_coloring", "comment": "misspelled extra field", "n": 5, "colours": 2, "forbidden_clique_sizes": [3, 3], "edge_colours": "0101100110", "colors": 2}

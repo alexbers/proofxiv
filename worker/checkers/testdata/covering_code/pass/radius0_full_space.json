@@ -1,0 +1,1 @@
+{"type": "covering_code", "comment": "radius 0 requires every word", "n": 3, "radius": 0, "codewords": ["000", "001", "010", "011", "100", "101", "110", "111"]}

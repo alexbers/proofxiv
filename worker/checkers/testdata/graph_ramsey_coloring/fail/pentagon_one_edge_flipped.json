@@ -1,0 +1,1 @@
+{"type": "graph_ramsey_coloring", "comment": "pentagon colouring with the single edge {0,1} recoloured: a monochromatic triangle appears", "n": 5, "colours": 2, "forbidden_clique_sizes": [3, 3], "edge_colours": "1101100110"}

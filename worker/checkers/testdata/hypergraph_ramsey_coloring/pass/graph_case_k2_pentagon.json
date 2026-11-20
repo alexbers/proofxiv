@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "k = 2 is the graph case: pentagon colouring, R(3,3;2) > 5", "n": 5, "k": 2, "forbidden_sizes": [3, 3], "colouring": "WYA="}

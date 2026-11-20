@@ -1,0 +1,1 @@
+{"type": "regular_graph_girth", "comment": "an edge must be a pair", "n": 4, "degree": 3, "girth": 3, "edges": [[0, 1, 2]]}

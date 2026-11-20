@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "R(4,4;3) = 13 (McKay-Radziszowski), so every colouring of the triples of [13] fails", "n": 13, "k": 3, "forbidden_sizes": [4, 4], "colouring": "1E0zIi3ZMRrBegNbnzqsXiiEav96m+jXdIxcD1PgtRQIe9UI"}

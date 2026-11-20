@@ -1,0 +1,1 @@
+{"type": "graph_ramsey_coloring", "comment": "K1 has no edge: R(2,2) > 1", "n": 1, "colours": 2, "forbidden_clique_sizes": [2, 2], "edge_colours": ""}

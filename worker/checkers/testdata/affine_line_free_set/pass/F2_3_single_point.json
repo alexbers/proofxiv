@@ -1,0 +1,1 @@
+{"type": "affine_line_free_set", "comment": "over F_2 every pair is a line; one point is line-free", "p": 2, "dimension": 3, "points": [[1, 0, 1]]}

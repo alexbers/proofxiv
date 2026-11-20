@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "x^3 + x + 1 -> -inf", "coefficients": ["1", "1", "0", "1"], "interval": ["-inf", "inf"], "strict": false}

@@ -1,0 +1,1 @@
+{"type": "kissing_configuration", "comment": "kissing number 12 in dimension 3", "dimension": 3, "squared_norm": 2, "vectors": [[1, 1, 0], [1, -1, 0], [-1, 1, 0], [-1, -1, 0], [1, 0, 1], [1, 0, -1], [-1, 0, 1], [-1, 0, -1], [0, 1, 1], [0, 1, -1], [0, -1, 1], [0, -1, -1]]}

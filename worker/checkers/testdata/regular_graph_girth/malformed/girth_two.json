@@ -1,0 +1,1 @@
+{"type": "regular_graph_girth", "comment": "girth >= 3", "n": 4, "degree": 3, "girth": 2, "edges": [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]}

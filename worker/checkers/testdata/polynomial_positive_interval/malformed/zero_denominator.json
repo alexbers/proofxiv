@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "zero denominator", "coefficients": ["1/0"], "interval": ["0", "1"]}

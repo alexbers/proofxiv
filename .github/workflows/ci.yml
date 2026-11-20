@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: proofxiv
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: proofxiv_test
+        ports: ["54329:5432"]
+        options: >-
+          --health-cmd "pg_isready -U proofxiv" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync
+      - run: uv run ruff check protocol server worker
+      - run: uv run pytest -q -m "not slow"
+        env:
+          PROOFXIV_TEST_DATABASE_URL: postgresql+asyncpg://proofxiv@127.0.0.1:54329/proofxiv_test
+      - name: migrations match the models
+        run: |
+          uv run --directory server alembic upgrade head
+          uv run --directory server alembic check
+        env:
+          PROOFXIV_DATABASE_URL: postgresql+asyncpg://proofxiv@127.0.0.1:54329/proofxiv_test
+
+  rust-checkers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo test --release
+        working-directory: worker/checkers-rs
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json}
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build

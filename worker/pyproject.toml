@@ -1,0 +1,24 @@
+[project]
+name = "proofxiv-worker"
+version = "0.1.0"
+description = "ProofXiv client: submit papers, exchange reviews, run checks, weekly trusted run"
+requires-python = ">=3.12"
+dependencies = [
+    "proofxiv-protocol",
+    "typer>=0.15",
+    "httpx>=0.27",
+    "numpy>=2.0",
+]
+
+[project.scripts]
+proofxiv = "proofxiv_worker.cli:main"
+
+[tool.uv.sources]
+proofxiv-protocol = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/proofxiv_worker"]

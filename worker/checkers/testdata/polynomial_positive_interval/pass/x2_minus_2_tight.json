@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "sqrt(2) = 1.41421... < 1.415", "coefficients": ["-2", "0", "1"], "interval": ["1415/1000", "2"]}

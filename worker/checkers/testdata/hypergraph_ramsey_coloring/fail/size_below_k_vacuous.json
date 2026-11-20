@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "a 2-set has no 3-subsets, so it is vacuously monochromatic in colour 0", "n": 6, "k": 3, "forbidden_sizes": [2, 6], "colouring": "///w"}

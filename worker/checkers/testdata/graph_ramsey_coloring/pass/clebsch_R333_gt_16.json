@@ -1,0 +1,1 @@
+{"type": "graph_ramsey_coloring", "comment": "Greenwood-Gleason colouring of K16 by cubic classes of GF(16)*: R(3,3,3) > 16", "n": 16, "colours": 3, "forbidden_clique_sizes": [3, 3, 3], "edge_colours": "011110222122120212211122211002010120201010020010220011110200210110012002012221100220102212020010102212211021010201222110"}

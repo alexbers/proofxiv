@@ -1,0 +1,1 @@
+{"type": "covering_code", "comment": "K(5,1) = 7: six words cannot cover", "n": 5, "radius": 1, "codewords": ["00000", "10000", "01000", "11110", "11101", "11011"]}

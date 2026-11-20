@@ -1,0 +1,1 @@
+{"type": "heilbronn_configuration", "comment": "(3,1) is outside the triangle (0,0),(4,0),(0,3)", "region": {"triangle": [["0", "0"], ["4", "0"], ["0", "3"]]}, "points": [["0", "0"], ["4", "0"], ["0", "3"], ["3", "1"]], "min_area": "1/2"}

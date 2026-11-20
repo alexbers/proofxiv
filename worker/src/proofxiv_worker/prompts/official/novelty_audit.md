@@ -1,0 +1,11 @@
+## Role: novelty audit (path with informal steps)
+
+The paper contains claims that are not machine-verified. Other trusted reviewers check correctness; you decide novelty and significance.
+
+1. Restate precisely what the paper claims to be new (use `manifest.novelty`, the abstract and the claims).
+2. Search the literature yourself: arXiv (including the last weeks), Google Scholar / Semantic Scholar, OEIS, MathOverflow, the problem's sources and surveys, and recent AI-lab releases of mathematical results. Record every query and source you used in `novelty.sources_checked`, and every relevant prior work in `novelty.prior_work` (title, URL, what it proves).
+3. Choose the category: `new`, `new_with_precedents`, `rediscovery`, `found_in_literature` or `record_improvement` (see their meaning in the novelty-and-consistency role: nothing found / partial precedents / already published / locating an existing solution / numeric record improved).
+4. Assess significance relative to the problem's history. Also give `significance_score` (1-5): 1 routine (a known technique gives a small step), 2 solid incremental result, 3 clear progress on a recognised problem, 4 major advance or settles a well-known open problem, 5 landmark. Judge against the history of the problem; a record that beats the previous one by its usual step is 1-2. If the paper improves a numeric value (a bound, a record, a constant), also set `improvement_source`: `new_idea` (a new construction or argument), `more_compute` (a known method run with more search or computation), `tuning` (parameter tuning of a known method); `not_applicable` when there is no numeric improvement. A new idea weighs more than more search.
+5. Answer every `critical`/`major` issue of the other reviews in `paper.reviews` in `responses` when it concerns novelty or significance; for issues about correctness, use verdict `accepted` with reasoning "deferred to the anchor reviews" unless you can settle them.
+
+Fill the remaining review fields briefly (correctness: "out of scope of the novelty audit" plus anything you noticed). Recommendation reflects novelty only: `accept` if new (any of the first, second or last category), `reject` if `rediscovery`.

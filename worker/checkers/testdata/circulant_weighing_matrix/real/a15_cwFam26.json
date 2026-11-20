@@ -1,0 +1,1 @@
+{"type":"circulant_weighing_matrix","comment":"A15: q=3: proper CW(26,3^2) (known order; boxed sporadic in Gordon 2026 Table 7)","n":26,"weight":9,"proper":true,"first_row":[0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,1,1,-1,0,1,0,0,1,-1,0,-1]}

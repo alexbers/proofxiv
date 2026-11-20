@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "2-colouring of the triples of [11] with no monochromatic 4-set: R(4,4;3) > 11", "n": 11, "k": 3, "forbidden_sizes": [4, 4], "colouring": "aouHF3lR5pZ5wV8JJzpbR+CuNtzA"}

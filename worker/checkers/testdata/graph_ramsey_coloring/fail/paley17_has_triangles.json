@@ -1,0 +1,1 @@
+{"type": "graph_ramsey_coloring", "comment": "Paley(17) contains triangles, so it does not show R(3,4) > 17", "n": 17, "colours": 2, "forbidden_clique_sizes": [3, 4], "edge_colours": "0001000100101001101001110100011101000011101001001110100110011101001110011101000111001110100101110011101000101110011101000010111001110100"}

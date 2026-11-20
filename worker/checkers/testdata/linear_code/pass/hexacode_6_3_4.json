@@ -1,0 +1,1 @@
+{"type": "linear_code", "comment": "hexacode over GF(4)", "field": {"p": 2, "m": 2, "modulus": [1, 1, 1]}, "n": 6, "k": 3, "generator_matrix": [[1, 0, 0, 1, 2, 2], [0, 1, 0, 2, 1, 2], [0, 0, 1, 2, 2, 1]], "minimum_distance": 4}

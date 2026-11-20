@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "100 - x^2 is eventually negative", "coefficients": ["100", "0", "-1"], "interval": ["0", "inf"]}

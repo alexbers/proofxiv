@@ -1,0 +1,1 @@
+{"type": "heilbronn_configuration", "comment": "three collinear points", "region": "unit_square", "points": [["0", "0"], ["1/2", "1/2"], ["1", "1"], ["1", "0"]], "min_area": "1/100"}

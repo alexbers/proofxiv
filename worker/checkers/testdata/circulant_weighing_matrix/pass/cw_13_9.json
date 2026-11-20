@@ -1,0 +1,1 @@
+{"type": "circulant_weighing_matrix", "comment": "CW(13,9): zeros on a (13,4,1) difference set", "n": 13, "weight": 9, "first_row": [0, 0, 1, 0, 1, 1, 1, -1, -1, 0, 1, -1, 1], "proper": true}

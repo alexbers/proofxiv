@@ -1,0 +1,1 @@
+{"type": "linear_code", "comment": "m = 1 takes no modulus", "field": {"p": 2, "modulus": [1, 1]}, "n": 7, "k": 4, "generator_matrix": [[1, 0, 0, 0, 0, 1, 1], [0, 1, 0, 0, 1, 0, 1], [0, 0, 1, 0, 1, 1, 0], [0, 0, 0, 1, 1, 1, 1]], "minimum_distance": 3}

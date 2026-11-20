@@ -1,0 +1,1 @@
+{"type": "graph_ramsey_coloring", "comment": "three sizes for two colours", "n": 5, "colours": 2, "forbidden_clique_sizes": [3, 3, 3], "edge_colours": "0101100110"}

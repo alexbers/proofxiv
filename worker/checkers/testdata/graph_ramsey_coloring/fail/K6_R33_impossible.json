@@ -1,0 +1,1 @@
+{"type": "graph_ramsey_coloring", "comment": "R(3,3) = 6: the colouring C6(1,3) / complement has a monochromatic triangle", "n": 6, "colours": 2, "forbidden_clique_sizes": [3, 3], "edge_colours": "010010101001010"}

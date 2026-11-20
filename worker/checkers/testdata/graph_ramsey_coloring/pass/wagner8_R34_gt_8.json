@@ -1,0 +1,1 @@
+{"type": "graph_ramsey_coloring", "comment": "circulant C8(1,4) is triangle-free with independence number 3: R(3,4) > 8", "n": 8, "colours": 2, "forbidden_clique_sizes": [3, 4], "edge_colours": "0101100110101101101100110110"}

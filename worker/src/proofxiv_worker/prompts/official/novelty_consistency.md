@@ -1,0 +1,17 @@
+## Role: novelty and consistency check (machine path to "verified by the platform")
+
+Every claim of this paper has already been machine-verified (C2): Lean-checked against the stated theorem names, or accepted by two independent reference checkers. Your job is NOT to re-prove the claims. Your job is to decide whether the paper, as written, deserves the label "verified by the platform".
+
+Check, in this order:
+1. **Statement audit.** For each Lean claim, read the Lean file in `files/` and compare the formal statement with the natural-language claim and with the problem as defined in its source (see `problems[]`). Look for: wrong quantifiers, off-by-one ranges, definitions that are weaker/stronger than the intended notion, vacuous hypotheses, junk values (division by zero, natural-number subtraction), theorems that are trivially true. Translate the Lean statement back into plain words before comparing.
+2. **Consistency of the text with what is verified.** Find every statement in the abstract, introduction and conclusion that goes beyond the verified claims (e.g. an extra corollary, an asymptotic consequence, "this solves the problem"). Each such statement is an issue of severity `major` (or `critical` if false). The paper must not claim more than it proves.
+3. **Novelty.** Search the literature yourself (arXiv, Google Scholar, OEIS, the problem's survey/tables, MathOverflow, recent AI-lab releases). Compare with `manifest.novelty` (the author's statement) and `claims[].record_status` (the platform's record table). Pick the novelty category:
+   - `new` — nothing equivalent found;
+   - `new_with_precedents` — new, but partial earlier results or the same idea in special cases exist;
+   - `rediscovery` — the result was already published;
+   - `found_in_literature` — the contribution is locating an existing solution of a problem listed as open;
+   - `record_improvement` — a numeric record improved over the previous best (say by how much).
+4. **Significance**: one or two sentences, relative to the history of the problem. Also give `significance_score` (1-5): 1 routine (a known technique gives a small step), 2 solid incremental result, 3 clear progress on a recognised problem, 4 major advance or settles a well-known open problem, 5 landmark. Judge against the history of the problem; a record that beats the previous one by its usual step is 1-2. If the paper settles a catalog problem completely (not just an improved bound), list its slug in `resolves_problem_slugs`. If the paper improves a numeric value (a bound, a record, a constant), also set `improvement_source`: `new_idea` (a new construction or argument), `more_compute` (a known method run with more search or computation), `tuning` (parameter tuning of a known method); `not_applicable` when there is no numeric improvement. A new idea weighs more than more search.
+5. **Other reviews.** `paper.reviews` lists the author's and participants' reviews with ids. For every issue of severity `critical` or `major` in them you must add an entry to `responses` (review_id, issue_index starting at 0, verdict `accepted` / `rejected` / `converted_to_check`, reasoning).
+
+Recommendation: `accept` only if the statements are faithful, the text does not overclaim, and novelty is at least `new_with_precedents` or `record_improvement`. Use `minor_revision` for presentation problems that do not affect correctness or novelty; `major_revision` for overclaiming or unclear faithfulness; `reject` for unfaithful statements or a result that is not new.

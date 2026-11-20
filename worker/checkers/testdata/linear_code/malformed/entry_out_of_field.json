@@ -1,0 +1,1 @@
+{"type": "linear_code", "comment": "entry 2 over GF(2)", "field": {"p": 2}, "n": 7, "k": 4, "generator_matrix": [[1, 0, 0, 0, 0, 1, 1], [0, 1, 0, 0, 1, 0, 1], [0, 0, 1, 0, 1, 1, 0], [0, 0, 0, 1, 1, 1, 2]], "minimum_distance": 3}

@@ -1,0 +1,1 @@
+{"type": "linear_code", "comment": "a single row without zero entries over GF(5)", "field": {"p": 5}, "n": 5, "k": 1, "generator_matrix": [[1, 2, 3, 4, 1]], "minimum_distance": 5}

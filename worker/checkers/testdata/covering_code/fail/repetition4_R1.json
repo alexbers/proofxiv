@@ -1,0 +1,1 @@
+{"type": "covering_code", "comment": "0011 is at distance 2 from both codewords", "n": 4, "radius": 1, "codewords": ["0000", "1111"]}

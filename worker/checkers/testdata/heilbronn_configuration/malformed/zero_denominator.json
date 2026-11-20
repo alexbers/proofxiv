@@ -1,0 +1,1 @@
+{"type": "heilbronn_configuration", "comment": "zero denominator", "region": "unit_square", "points": [["0", "0"], ["1", "0"], ["0", "1"], ["1/0", "1"]], "min_area": "1/2"}

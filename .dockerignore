@@ -1,0 +1,13 @@
+# Build context of the server image is the repository root; only protocol/ and server/ are used.
+.git
+.venv
+.dev
+data
+import
+design
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+web
+worker
+deploy/.env

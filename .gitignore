@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+# work and temporary files of development and tests (never /tmp); the directory itself is kept
+.dev/*
+!.dev/.gitkeep
+data/
+node_modules/
+.next/
+web/out/
+target/
+*.egg-info/
+.env
+.env.*
+!.env.example
+
+# one-off import of the authors' own papers (local paths, internal reviews); not published
+/import/

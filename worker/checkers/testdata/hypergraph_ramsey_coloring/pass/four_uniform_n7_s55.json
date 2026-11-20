@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "2-colouring of the 4-subsets of [7] with no monochromatic 5-set: R(5,5;4) > 7", "n": 7, "k": 4, "forbidden_sizes": [5, 5], "colouring": "Fd/FNCA="}

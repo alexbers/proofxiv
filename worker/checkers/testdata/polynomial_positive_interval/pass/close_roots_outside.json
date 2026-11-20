@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "two roots 10^-30 apart just left of the interval", "coefficients": ["1000000000000000000000000000003/9000000000000000000000000000000", "-2000000000000000000000000000003/3000000000000000000000000000000", "1"], "interval": ["34/100", "1"]}

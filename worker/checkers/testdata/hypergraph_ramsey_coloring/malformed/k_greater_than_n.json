@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "k > n", "n": 3, "k": 4, "forbidden_sizes": [3, 3], "colouring": ""}

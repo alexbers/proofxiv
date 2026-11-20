@@ -1,0 +1,1 @@
+{"type": "hypergraph_ramsey_coloring", "comment": "C(5,2) = 10 bits; a padding bit of the last byte is 1", "n": 5, "k": 2, "forbidden_sizes": [3, 3], "colouring": "WYE="}

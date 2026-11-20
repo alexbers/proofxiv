@@ -1,0 +1,1 @@
+{"type": "hadamard_matrix", "comment": "symmetric must be a boolean", "n": 2, "rows": ["++", "+-"], "symmetric": "yes"}

@@ -1,0 +1,1 @@
+{"type": "circulant_weighing_matrix", "comment": "a single nonzero entry is improper", "n": 5, "weight": 1, "first_row": [0, 0, -1, 0, 0], "proper": true}

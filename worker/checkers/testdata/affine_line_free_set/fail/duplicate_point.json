@@ -1,0 +1,1 @@
+{"type": "affine_line_free_set", "comment": "a point listed twice", "p": 3, "dimension": 2, "points": [[0, 0], [0, 1], [1, 0], [1, 1], [1, 0]]}

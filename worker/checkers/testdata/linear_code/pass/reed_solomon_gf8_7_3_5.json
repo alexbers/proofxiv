@@ -1,0 +1,1 @@
+{"type": "linear_code", "comment": "Reed-Solomon code over GF(8): evaluations of polynomials of degree < 3 at the 7 nonzero elements", "field": {"p": 2, "m": 3, "modulus": [1, 1, 0, 1]}, "n": 7, "k": 3, "generator_matrix": [[1, 1, 1, 1, 1, 1, 1], [1, 2, 4, 3, 6, 7, 5], [1, 4, 6, 5, 2, 3, 7]], "minimum_distance": 5}

@@ -1,0 +1,1 @@
+{"type": "kissing_configuration", "comment": "three vectors at exactly 60 degrees", "dimension": 3, "vectors": [[1, 1, 0], [1, 0, 1], [0, 1, 1]]}

@@ -1,0 +1,1 @@
+{"type": "heilbronn_configuration", "comment": "explicit right triangle (0,0),(4,0),(0,3)", "region": {"triangle": [["0", "0"], ["4", "0"], ["0", "3"]]}, "points": [["0", "0"], ["4", "0"], ["0", "3"], ["1", "1"]], "min_area": "3/2"}

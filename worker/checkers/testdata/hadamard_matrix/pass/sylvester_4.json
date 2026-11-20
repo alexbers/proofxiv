@@ -1,0 +1,1 @@
+{"type": "hadamard_matrix", "comment": "Sylvester matrix of order 4 (symmetric)", "n": 4, "symmetric": true, "rows": ["++++", "+-+-", "++--", "+--+"]}

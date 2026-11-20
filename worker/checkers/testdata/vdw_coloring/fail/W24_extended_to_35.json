@@ -1,0 +1,1 @@
+{"type": "vdw_coloring", "comment": "W(2,4) = 35: any colouring of {1..35} fails", "n": 35, "colours": 2, "k": 4, "colouring": "00100011101001000111010010001110110"}

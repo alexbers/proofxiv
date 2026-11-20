@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "between the roots 2 and 3 the sign is (-1)^8 = +", "coefficients": ["3628800", "-10628640", "12753576", "-8409500", "3416930", "-902055", "157773", "-18150", "1320", "-55", "1"], "interval": ["21/10", "29/10"], "strict": true}

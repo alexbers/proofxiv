@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "the left endpoint may only be -inf", "coefficients": ["1", "0", "1"], "interval": ["inf", "1"]}

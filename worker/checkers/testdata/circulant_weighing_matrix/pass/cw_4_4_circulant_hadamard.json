@@ -1,0 +1,1 @@
+{"type": "circulant_weighing_matrix", "comment": "the circulant Hadamard matrix of order 4", "n": 4, "weight": 4, "first_row": [1, 1, 1, -1]}

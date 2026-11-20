@@ -1,0 +1,1 @@
+{"type": "graph_ramsey_coloring", "comment": "circulant C13(1,5) (cubic residues mod 13): R(3,5) > 13", "n": 13, "colours": 2, "forbidden_clique_sizes": [3, 5], "edge_colours": "010110111001110101110110111001101110101101110110110111011101101110011101101110"}

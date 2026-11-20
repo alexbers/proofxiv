@@ -1,0 +1,82 @@
+# One small machine (2–4 cores, 4–8 GB RAM): about 2.5 GB in total.
+# Usage: cp .env.example .env && edit, then `docker compose up -d --build` from this directory.
+name: proofxiv
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: proofxiv
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: proofxiv
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=50"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits: {memory: 768m}
+
+  api:
+    build: {context: .., dockerfile: deploy/Dockerfile.server}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PROOFXIV_DATABASE_URL: postgresql+asyncpg://proofxiv:${POSTGRES_PASSWORD}@postgres:5432/proofxiv
+    volumes:
+      - data:/data
+    depends_on: [postgres]
+    deploy:
+      resources:
+        limits: {memory: 1g}  # a submission of up to 100 MB is unpacked in memory
+
+  jobs:
+    build: {context: .., dockerfile: deploy/Dockerfile.server}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PROOFXIV_DATABASE_URL: postgresql+asyncpg://proofxiv:${POSTGRES_PASSWORD}@postgres:5432/proofxiv
+    command: ["proofxiv-server", "jobs", "--interval", "60"]
+    volumes:
+      - data:/data
+    depends_on: [api]
+    deploy:
+      resources:
+        limits: {memory: 256m}
+
+  web:
+    build:
+      context: ../web
+      dockerfile: ../deploy/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: https://${PROOFXIV_DOMAIN}
+        NEXT_PUBLIC_FILES_URL: https://${PROOFXIV_FILES_DOMAIN}
+        NEXT_PUBLIC_SITE_URL: https://${PROOFXIV_DOMAIN}
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://api:8000  # server-side rendering talks to the API directly
+    depends_on: [api]
+    deploy:
+      resources:
+        limits: {memory: 512m}
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      PROOFXIV_DOMAIN: ${PROOFXIV_DOMAIN}
+      PROOFXIV_FILES_DOMAIN: ${PROOFXIV_FILES_DOMAIN}
+      PROOFXIV_OLD_DOMAINS: ${PROOFXIV_OLD_DOMAINS:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [api, web]
+    deploy:
+      resources:
+        limits: {memory: 64m}
+
+volumes:
+  pgdata:
+  data:
+  caddy_data:

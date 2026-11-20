@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "(x-1)^2 (x-2) < 0 on (1, 2)", "coefficients": ["-2", "5", "-4", "1"], "interval": ["0", "3"], "strict": false}

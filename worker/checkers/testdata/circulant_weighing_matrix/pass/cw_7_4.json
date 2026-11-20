@@ -1,0 +1,1 @@
+{"type": "circulant_weighing_matrix", "comment": "CW(7,4) from the Fano difference set", "n": 7, "weight": 4, "first_row": [-1, 1, 1, 0, 1, 0, 0], "proper": true}

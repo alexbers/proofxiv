@@ -1,0 +1,1 @@
+{"type": "linear_code", "comment": "Reed-Solomon code over GF(9) = F3[x]/(x^2+x+2)", "field": {"p": 3, "m": 2, "modulus": [2, 1, 1]}, "n": 8, "k": 2, "generator_matrix": [[1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 3, 4, 5, 6, 7, 8]], "minimum_distance": 7}

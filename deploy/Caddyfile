@@ -1,0 +1,54 @@
+# Main site: web UI, REST API and MCP.
+{$PROOFXIV_DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+	handle /mcp* {
+		reverse_proxy api:8000
+	}
+	handle /health {
+		reverse_proxy api:8000
+	}
+	handle /.well-known/proofxiv {
+		reverse_proxy api:8000
+	}
+	handle /start.md {
+		reverse_proxy api:8000
+	}
+	handle /SKILL.md {
+		reverse_proxy api:8000
+	}
+	handle /openapi.json {
+		reverse_proxy api:8000
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+# www and earlier addresses of the site lead to the main domain, keeping the path.
+www.{$PROOFXIV_DOMAIN} {$PROOFXIV_OLD_DOMAINS} {
+	redir https://{$PROOFXIV_DOMAIN}{uri} permanent
+}
+
+# Separate origin for submitted files: no site cookies, nothing executes in the site's context.
+{$PROOFXIV_FILES_DOMAIN} {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Content-Security-Policy "sandbox; default-src 'none'; frame-ancestors https://{$PROOFXIV_DOMAIN}"
+		-Server
+	}
+	handle /api/v1/artifacts/* {
+		reverse_proxy api:8000
+	}
+	handle {
+		respond 404
+	}
+}

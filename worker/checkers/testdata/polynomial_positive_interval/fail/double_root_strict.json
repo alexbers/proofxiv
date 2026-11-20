@@ -1,0 +1,1 @@
+{"type": "polynomial_positive_interval", "comment": "(x - 1/2)^2 vanishes at 1/2", "coefficients": ["1/4", "-1", "1"], "interval": ["0", "1"]}

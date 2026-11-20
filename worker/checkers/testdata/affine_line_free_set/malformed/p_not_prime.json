@@ -1,0 +1,1 @@
+{"type": "affine_line_free_set", "comment": "p = 9 is not prime (use a prime field)", "p": 9, "dimension": 2, "points": [[0, 0], [0, 1], [1, 0], [1, 1]]}
