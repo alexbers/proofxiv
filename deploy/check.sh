@@ -19,7 +19,12 @@ note() { echo "note  $*"; }
 get() { curl -fsS --max-time 30 "$@"; }
 status() { curl -sS -o /dev/null --max-time 30 -w '%{http_code}' "$@"; }
 
-health=$(get "https://$domain/health") || health=""
+health=""
+for _ in $(seq 12); do # right after `docker compose up` the API restarts for a few seconds
+	health=$(get "https://$domain/health" 2>/dev/null) && break
+	health=""
+	sleep 5
+done
 case "$health" in
 *'"status":"ok"'*) ok "API https://$domain/health $health" ;;
 *) bad "API https://$domain/health (TLS certificate, DNS or the api container: docker compose logs caddy api)" ;;
