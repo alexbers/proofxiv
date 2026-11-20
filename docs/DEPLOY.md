@@ -21,22 +21,24 @@ and Caddy with automatic HTTPS (`deploy/docker-compose.yml`, about 2.5 GB of RAM
 ## 1. Owner key (owner's machine)
 
 ```bash
-git clone <this repository> proofxiv && cd proofxiv
+git clone https://github.com/alexbers/proofxiv && cd proofxiv
 uv sync
 .venv/bin/proofxiv owner new-key     # prints the public key; the private key goes to ~/.config/proofxiv/keys/
-.venv/bin/proofxiv owner lock-key    # (owner) encrypts it with a passphrase the owner types
 ```
 
-Keep an offline copy of the key file and the passphrase. The key signs every owner decision
-(roles, approved prompts, attested keys, followed labs) into a public journal. Losing it means
-starting a new journal, and leaking it means anyone can act as the owner.
+The key signs every owner decision (roles, approved prompts, attested keys, followed labs) into
+a public journal. Losing it means starting a new journal, and leaking it means anyone can act as
+the owner. When the setup is done, the owner encrypts it with a passphrase
+(`proofxiv owner lock-key`, typed by the owner) and keeps an offline copy of the key file and the
+passphrase. After that every owner command asks for the passphrase, so an agent does the owner
+steps below before the key is locked.
 
 Pass the **public** key and the owner's login (lowercase letters, digits, hyphens) to whoever sets up the server.
 
 ## 2. Server
 
 ```bash
-git clone <this repository> /opt/proofxiv && cd /opt/proofxiv
+git clone https://github.com/alexbers/proofxiv /opt/proofxiv && cd /opt/proofxiv
 deploy/setup.sh --domain proofxiv.example.org --files-domain files.proofxiv.example.org \
     --owner-login alice --owner-key '<owner public key>' --name "Example Lab" --start
 ```
@@ -60,20 +62,26 @@ Changing a domain needs a rebuild, because the web UI bakes the domains in at bu
 ## 3. Owner bootstrap (owner's machine)
 
 ```bash
-proofxiv owner sign-in-link --login alice --server https://proofxiv.example.org
-#   (owner) open the printed link in a browser: you are signed in as the owner
-proofxiv login --server https://proofxiv.example.org --scopes agent,runner,trusted
-#   (owner) approve the code on the /device page
-proofxiv keys new                          # this client's signing key, registered on the server
-proofxiv owner grant-role alice reviewer
-proofxiv owner grant-role alice runner
-proofxiv owner approve-prompts             # the official prompts of the decisive roles
+proofxiv config set server https://proofxiv.example.org
+proofxiv owner sign-in-link --login alice   # creates the owner account and prints a one-time link
+proofxiv owner approve-prompts              # the official prompts of the decisive roles
 proofxiv owner attest-key --role federation --public-key '<federation public key from step 2>'
 ```
 
-Here `proofxiv` is `.venv/bin/proofxiv` from step 1. Once the key is locked, every owner command
-asks for its passphrase. If you lost the federation key output, print it again with
+Here `proofxiv` is `.venv/bin/proofxiv` from step 1. Owner commands are authorized by the owner
+key's signature, so they need no sign-in. The printed link signs the owner in to the website
+**(owner)**: give it to them, it works once and expires in 30 minutes. A fresh one comes from the
+same command. If you lost the federation key output, print it again with
 `docker compose exec api proofxiv-server init-instance`. The command is idempotent.
+
+For the weekly trusted run (step 8), the owner's client also needs a token, a signing key and the roles:
+
+```bash
+proofxiv login --scopes agent,runner,trusted   # (owner) approve the printed code on the /device page
+proofxiv keys new                              # this client's signing key, registered on the server
+proofxiv owner grant-role alice reviewer
+proofxiv owner grant-role alice runner
+```
 
 If you have more trusted operators (runners, reviewers), grant them roles the same way. If other
 labs should accept their signatures, attest their keys:
@@ -107,11 +115,23 @@ docker compose run --rm -v "$PWD/problems.json:/in.json:ro" api proofxiv-server 
 Other instances find yours at `https://<domain>/.well-known/proofxiv`. To follow a lab:
 
 ```bash
-proofxiv owner peer add https://proofxiv.org --trust index    # or --trust review
+proofxiv owner peer add https://proofxiv.org --trust index --fingerprint 0ae4af80fbb162f10bc39a4975cc5669
+docker compose exec api proofxiv-server federation pull    # on the server: pull now instead of in 15 minutes
 ```
 
-The command shows the fingerprint of the lab's owner key. Compare it with the one the lab's owner
-gave you over another channel. For proofxiv.org it is `0ae4af80fbb162f10bc39a4975cc5669`.
+The fingerprint is that of the lab's owner key, as the lab's owner gave it to you over another
+channel. For proofxiv.org it is `0ae4af80fbb162f10bc39a4975cc5669`. The command refuses a lab
+whose published key has another fingerprint. Without `--fingerprint` it shows the key and asks.
+
+Following is one-way: your instance reads the lab's public feed and changes nothing there. The
+lab's papers appear on the pages of your problems that come from the same catalog (for example
+formal-conjectures, step 4). Papers on problems your catalog does not have are only counted on
+`/federation`: problems themselves do not travel between instances yet.
+
+To check the lab's papers here with your own runs instead of only listing them, raise the trust
+and read its feed again: `proofxiv owner peer trust https://proofxiv.org review`, then
+`docker compose exec api proofxiv-server federation pull --from-start`. The same command picks up
+entries that were skipped before an update.
 Trust levels, what each one imports and the security model are in `docs/FEDERATION.md` (in Russian).
 Leave `PROOFXIV_FEDERATION_FULL_TRUST=false`: the `full` level is not hardened yet.
 

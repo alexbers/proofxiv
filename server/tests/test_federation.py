@@ -65,6 +65,7 @@ class Lab:
         self.outbox_path = "/api/v1/federation/outbox"
         self.submitter = "lab-alice"
         self.papers: dict[str, dict[str, Any]] = {}  # what a reviewer at the lab sees of each paper
+        self.limits: list[int] = []  # page sizes followers asked for
         self.statement(action="attest_key", role="federation", public_key=self.federation_public)
         self.statement(action="attest_key", role="reviewer", public_key=self.reviewer_public, operator_login="weekly")
         self.statement(action="attest_key", role="runner", public_key=self.runner_public, operator_login="runner")
@@ -188,12 +189,14 @@ class Lab:
             return httpx.Response(200, json=self.journal)
         if path == "/api/v1/federation/outbox":
             after = int(request.url.params.get("after", "0"))
+            limit = int(request.url.params.get("limit", "100"))
+            self.limits.append(limit)
             out = []
             for seq, (kind, body, signed_with) in enumerate(self.entries, start=1):
-                if seq > after:
+                if seq > after and len(out) < limit:
                     entry = OutboxEntry(instance=self.base, seq=seq, kind=kind, created_at=utc_now_iso(), body=body)
                     out.append(SignedBundle.create(entry, signed_with or self.federation_private).model_dump(mode="json"))
-            page = OutboxPage(entries=out, next_after=len(self.entries), last_seq=len(self.entries))
+            page = OutboxPage(entries=out, next_after=after + len(out), last_seq=len(self.entries))
             return httpx.Response(200, json=page.model_dump(mode="json"))
         if path.startswith("/api/v1/artifacts/"):
             blob = self.blobs.get(path.rsplit("/", 1)[-1])
@@ -531,3 +534,51 @@ async def test_full_trust_is_off_unless_enabled(transport):
     assert "not enabled" in refused["message"]
     await owner.post("/owner/statements", json=owner_statement(action="add_peer", peer_url=lab.base, peer_owner_key=lab.owner_public, trust="review"))
     await owner.post("/owner/statements", json=owner_statement(action="set_peer_trust", peer_url=lab.base, trust="full"), expect=422)
+
+
+async def test_large_papers_shrink_pages_and_the_feed_can_be_read_again(transport, monkeypatch):
+    """A long paper.json (many claims) is legal up to MAX_MANIFEST_BYTES: the follower asks for
+    fewer entries at once instead of stopping. Larger ones are refused at submission and skipped
+    by followers. A feed read again changes nothing, and raising a lab from index to review
+    imports what was only listed."""
+    from proofxiv_server.core import federation
+    from proofxiv_server.db.session import sessionmaker
+
+    owner = await login(transport, "owner")
+    slug, key = await _problem("Lab.large_papers", "Federation large papers problem")
+    lab = Lab("large.example")
+
+    def claims(n: int) -> list[dict[str, str]]:
+        return [{"key": f"c{i}", "kind": "informal", "statement": "x" * 1000} for i in range(n)]
+
+    for i in range(3):
+        lab.paper(f"A paper with many claims {i}", key)
+        lab.entries[-1][1]["manifest"]["claims"] = claims(150)  # about 150 KB, like a real one
+    lab.paper("A paper.json past the limit", key)
+    lab.entries[-1][1]["manifest"]["claims"] = claims(600)
+    monkeypatch.setattr(federation, "MAX_JSON_BYTES", 1024 * 1024)  # the four do not fit one page
+
+    await owner.post("/owner/statements", json=owner_statement(action="add_peer", peer_url=lab.base, peer_owner_key=lab.owner_public, trust="index"))
+    async with client_for(lab) as client:
+        stats = (await federation.pull_due(client=client, force=True))[lab.base]
+    assert stats["applied"] == 3 and stats["cursor"] == 4
+    assert [s.split(":")[0] for s in stats["skipped"]] == ["entry 4 (paper_version)"]
+    assert lab.limits[:3] == [100, 10, 1]
+    assert len((await Api(transport).get(f"/problems/{slug}/precheck"))["federation"]) == 3
+
+    # read again: nothing changes; raised to review: the listed papers are imported here
+    await owner.post("/owner/statements", json=owner_statement(action="set_peer_trust", peer_url=lab.base, trust="review"))
+    async with sessionmaker()() as s:
+        assert await federation.rewind(s) >= 1
+        await s.commit()
+    async with client_for(lab) as client:
+        stats = (await federation.pull_due(client=client, force=True))[lab.base]
+    assert stats["applied"] == 3 and len(stats["skipped"]) == 1
+    imported = [f["paper_id"] for f in (await Api(transport).get(f"/problems/{slug}"))["federation"]]
+    assert len(imported) == 3 and all(imported)
+
+    # the same limit at submission: a lab cannot accept a paper its followers would refuse
+    fedora = await agent(transport, await login(transport, "fedora-large"), "fedora-large-agent")
+    manifest = json.loads(MANIFEST) | {"claims": claims(600)}
+    bundle = make_bundle({"paper.json": json.dumps(manifest), "paper.pdf": b"%PDF large"})
+    await fedora.post("/papers", files={"bundle": ("p.tar.gz", bundle, "application/gzip")}, expect=413)

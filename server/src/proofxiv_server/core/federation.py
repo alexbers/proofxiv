@@ -58,7 +58,7 @@ from proofxiv_protocol.federation import (
     WithdrawalBody,
 )
 from proofxiv_protocol.owner import OwnerAction, OwnerStatement
-from proofxiv_protocol.papers import PaperManifest
+from proofxiv_protocol.papers import MAX_MANIFEST_BYTES, PaperManifest
 from proofxiv_protocol.runs import RunResult
 from proofxiv_protocol.signing import (
     SignedBundle,
@@ -107,9 +107,8 @@ MAX_FILES = 500  # files of one paper version
 PAPERS_PER_PULL = 50  # imported papers (with their files) per peer and pull; the rest waits for the next
 PAPERS_PER_DAY = 200  # paper versions per peer and day (listed or imported): each costs storage or checks
 MAX_PROBLEMS = 20  # problems a paper names
-MAX_MANIFEST_BYTES = 64 * 1024
 PULL_DEADLINE = 300.0  # seconds for one peer's pull, whatever its server does
-PAGE = 100
+PAGE = 100  # outbox entries asked for at once; fewer when a page is larger than MAX_JSON_BYTES
 PAGES_PER_PULL = 20
 TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 REVIEW_TASK_KINDS = {
@@ -474,6 +473,10 @@ class PullError(Exception):
     pass
 
 
+class ResponseTooLarge(PullError):
+    pass
+
+
 def _clean(text: str, limit: int) -> str:
     """Text from a peer that this instance shows (errors): printable, short."""
     return re.sub(r"[^\x20-\x7e\n]", "?", text)[:limit]
@@ -524,12 +527,12 @@ async def _read_capped(client: httpx.AsyncClient, url: str, cap: int) -> tuple[i
             return resp.status_code, b""
         declared = resp.headers.get("content-length")
         if declared and declared.isdigit() and int(declared) > cap:
-            raise PullError(f"GET {url}: response too large")
+            raise ResponseTooLarge(f"GET {url}: response too large")
         chunks, size = [], 0
         async for chunk in resp.aiter_bytes():
             size += len(chunk)
             if size > cap:
-                raise PullError(f"GET {url}: response too large")
+                raise ResponseTooLarge(f"GET {url}: response too large")
             chunks.append(chunk)
         return 200, b"".join(chunks)
 
@@ -542,6 +545,15 @@ async def _get(client: httpx.AsyncClient, url: str) -> Any:
         return json.loads(body)
     except (ValueError, RecursionError) as exc:
         raise PullError(f"GET {url}: not JSON") from exc
+
+
+async def rewind(session: AsyncSession) -> int:
+    """Read the followed labs' feeds again from the first entry: after an update that accepts what
+    was skipped, or after raising a lab from index to review. Entries already applied are no-ops."""
+    peers = list((await session.execute(select(Peer).where(Peer.removed_at.is_(None)))).scalars())
+    for peer in peers:
+        peer.cursor = 0
+    return len(peers)
 
 
 async def pull_due(client: httpx.AsyncClient | None = None, force: bool = False) -> dict[str, Any]:
@@ -629,13 +641,20 @@ async def pull_peer(
         )
     ).scalar_one()
     this_pull = 0
+    size = PAGE
     for _ in range(PAGES_PER_PULL):
-        page = OutboxPage.model_validate(
-            await _get(client, _peer_url(peer, info.outbox) + f"?after={peer.cursor}&limit={PAGE}")
-        )
+        try:
+            page = OutboxPage.model_validate(
+                await _get(client, _peer_url(peer, info.outbox) + f"?after={peer.cursor}&limit={size}")
+            )
+        except ResponseTooLarge:
+            if size == 1:
+                raise  # one entry is larger than any page may be: the feed stops here
+            size = max(1, size // 10)  # large papers (a long paper.json): ask for fewer at once
+            continue
         if not page.entries:
             break
-        for raw in page.entries[:PAGE]:
+        for raw in page.entries[:size]:
             if deadline is not None and time.monotonic() > deadline:
                 return {"applied": applied, "skipped": skipped, "cursor": peer.cursor, "more": True}
             bundle = SignedBundle.model_validate(raw)
@@ -978,8 +997,10 @@ async def _on_paper_version(
             select(FederatedPaper).where(FederatedPaper.peer_id == peer.id, FederatedPaper.remote_id == body.paper_id)
         )
     ).scalar_one_or_none()
-    if fed is not None and body.version <= fed.version:
-        raise Invalid(f"version {body.version} is not newer than version {fed.version}")
+    if fed is not None and body.version == fed.version and (fed.paper_id is not None or peer.trust is PeerTrust.INDEX):
+        return  # here already (the feed read again); a listed paper is imported once the trust is raised
+    if fed is not None and body.version < fed.version:
+        raise Invalid(f"version {body.version} is older than version {fed.version} here")
     audit.record(session, None, "federation.paper", "peer", peer.id, peer=peer.base_url, remote=body.paper_id)
 
     def listed(target: FederatedPaper) -> None:

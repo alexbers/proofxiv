@@ -45,6 +45,12 @@ def _client() -> Client:
     return Client(cfg)
 
 
+def _owner_client() -> Client:
+    """Owner statements are authorized by the owner key's signature, not by a token: owner
+    commands work before the owner has signed in anywhere (a fresh instance)."""
+    return Client(config.load())
+
+
 def _private_key() -> str:
     cfg = config.load()
     if not cfg.key_file:
@@ -337,14 +343,14 @@ def owner_sign_in_link(
 
 @owner_app.command("grant-role")
 def grant_role(login: str, role: str) -> None:
-    with _client() as client:
+    with _owner_client() as client:
         owner.send(client, _owner_key(), action="grant_role", operator_login=login, role=role)
     typer.echo(f"granted {role} to {login}")
 
 
 @owner_app.command("revoke-role")
 def revoke_role(login: str, role: str, reason: str = "") -> None:
-    with _client() as client:
+    with _owner_client() as client:
         owner.send(client, _owner_key(), action="revoke_role", operator_login=login, role=role, reason=reason)
     typer.echo(f"revoked {role} from {login}")
 
@@ -355,7 +361,7 @@ def revoke_key(
     since: Annotated[str | None, typer.Option(help="distrust signatures from this ISO time")] = None,
     reason: str = "",
 ) -> None:
-    with _client() as client:
+    with _owner_client() as client:
         owner.send(client, _owner_key(), action="revoke_key", key_fingerprint=fingerprint, revoke_from=since, reason=reason)
     typer.echo(f"revoked key {fingerprint}; everything it signed is being re-checked")
 
@@ -368,7 +374,7 @@ def attest_key(
 ) -> None:
     """Vouch for a key in the public owner journal, so that other ProofXiv labs accept what it
     signs: the outbox (federation), machine checks (runner), decisive reviews (reviewer)."""
-    with _client() as client:
+    with _owner_client() as client:
         owner.send(client, _owner_key(), action="attest_key", role=role, public_key=public_key, operator_login=login)
     typer.echo(f"attested {key_fingerprint(public_key)} for {role}")
 
@@ -377,6 +383,10 @@ def attest_key(
 def peer_add(
     url: str,
     trust: Annotated[str, typer.Option(help="index (list only) | review (check here) | full (accept the lab's checks)")] = "review",
+    fingerprint: Annotated[
+        str | None,
+        typer.Option(help="the owner key fingerprint the lab's owner gave you: checked instead of asking"),
+    ] = None,
 ) -> None:
     """Follow a ProofXiv lab: shows the owner key it publishes; compare its fingerprint with what the
     lab's owner told you, and confirm. That key becomes the root of trust for everything from the lab."""
@@ -389,10 +399,16 @@ def peer_add(
         raise typer.BadParameter("the instance publishes no owner key")
     for i, key in enumerate(keys_listed):
         typer.echo(f"  [{i}] owner key fingerprint {key_fingerprint(key)}")
-    index = int(typer.prompt("Which owner key do you trust", default="0")) if len(keys_listed) > 1 else 0
-    if typer.prompt(f"Follow it with trust '{trust}'? Type yes") != "yes":
-        raise typer.Abort()
-    with _client() as client:
+    if fingerprint is not None:
+        matching = [i for i, key in enumerate(keys_listed) if key_fingerprint(key) == fingerprint.strip().lower()]
+        if not matching:
+            raise typer.BadParameter(f"no owner key of {info['base_url']} has the fingerprint {fingerprint}")
+        index = matching[0]
+    else:
+        index = int(typer.prompt("Which owner key do you trust", default="0")) if len(keys_listed) > 1 else 0
+        if typer.prompt(f"Follow it with trust '{trust}'? Type yes") != "yes":
+            raise typer.Abort()
+    with _owner_client() as client:
         owner.send(client, _owner_key(), action="add_peer", peer_url=info["base_url"], peer_owner_key=keys_listed[index], trust=trust)
     typer.echo(f"following {info['base_url']} ({trust}); the jobs loop pulls it every 15 minutes")
 
@@ -400,7 +416,7 @@ def peer_add(
 @peer_app.command("trust")
 def peer_trust(url: str, trust: Annotated[str, typer.Argument(help="index | review | full")]) -> None:
     """Change how much this instance trusts a lab it follows (applies to what arrives next)."""
-    with _client() as client:
+    with _owner_client() as client:
         owner.send(client, _owner_key(), action="set_peer_trust", peer_url=url.rstrip("/"), trust=trust)
     typer.echo(f"{url}: trust {trust}")
 
@@ -408,7 +424,7 @@ def peer_trust(url: str, trust: Annotated[str, typer.Argument(help="index | revi
 @peer_app.command("remove")
 def peer_remove(url: str) -> None:
     """Stop following a lab (what came from it stays, with its origin shown)."""
-    with _client() as client:
+    with _owner_client() as client:
         owner.send(client, _owner_key(), action="remove_peer", peer_url=url.rstrip("/"))
     typer.echo(f"no longer following {url}")
 
@@ -416,7 +432,7 @@ def peer_remove(url: str) -> None:
 @owner_app.command("approve-prompts")
 def approve_prompts(name: Annotated[list[str] | None, typer.Option(help="only these prompts")] = None) -> None:
     """Approve (sign) the local official prompts that changed."""
-    with _client() as client:
+    with _owner_client() as client:
         approved = owner.approve_prompts(client, _owner_key(), name)
     typer.echo("approved: " + (", ".join(approved) if approved else "nothing changed"))
 
@@ -466,7 +482,7 @@ def upstream_open(
 @heldout_app.command("new")
 def heldout_new(secret: SecretFile) -> None:
     """Commit a new held-out prompt version (its hash goes to the server, the text stays here)."""
-    with _client() as client:
+    with _owner_client() as client:
         version, path = owner.commit_heldout(client, _owner_key(), secret.read_text())
     typer.echo(f"heldout_review v{version} committed; the text is in {path} (the weekly run needs it)")
 
@@ -474,7 +490,7 @@ def heldout_new(secret: SecretFile) -> None:
 @heldout_app.command("reveal")
 def heldout_reveal(version: int) -> None:
     """Publish a held-out prompt; the transcripts of the reviews written with it become public."""
-    with _client() as client:
+    with _owner_client() as client:
         owner.reveal_heldout(client, _owner_key(), version)
     typer.echo(f"heldout_review v{version} revealed")
 
@@ -482,28 +498,28 @@ def heldout_reveal(version: int) -> None:
 @heldout_app.command("rotate")
 def heldout_rotate(secret: SecretFile) -> None:
     """Commit a new version and reveal the older ones."""
-    with _client() as client:
+    with _owner_client() as client:
         version, revealed = owner.rotate_heldout(client, _owner_key(), secret.read_text())
     typer.echo(f"heldout_review v{version} committed; revealed: {revealed or 'none'}")
 
 
 @owner_app.command("set-param")
 def set_param(key: str, value: str) -> None:
-    with _client() as client:
+    with _owner_client() as client:
         owner.send(client, _owner_key(), action="set_param", param=key, value=json.loads(value))
     typer.echo(f"{key} = {value}")
 
 
 @owner_app.command("hide")
 def hide(target_type: str, target_id: str, reason: str) -> None:
-    with _client() as client:
+    with _owner_client() as client:
         owner.send(client, _owner_key(), action="hide", target_type=target_type, target_id=target_id, reason=reason)
     typer.echo("hidden")
 
 
 @owner_app.command("unhide")
 def unhide(target_type: str, target_id: str, reason: str) -> None:
-    with _client() as client:
+    with _owner_client() as client:
         owner.send(client, _owner_key(), action="unhide", target_type=target_type, target_id=target_id, reason=reason)
     typer.echo("restored")
 

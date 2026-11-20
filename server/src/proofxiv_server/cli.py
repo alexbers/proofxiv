@@ -44,6 +44,11 @@ def main() -> None:
     sub.add_parser("init-instance", help="create the federation key (signs the outbox) and print what the owner attests")
     fed = sub.add_parser("federation", help="federation: pull the labs this instance follows, or publish old papers")
     fed.add_argument("action", choices=["pull", "backfill"])
+    fed.add_argument(
+        "--from-start",
+        action="store_true",
+        help="pull: read the feeds again from the first entry (after an update, or after raising a lab to review)",
+    )
     args = parser.parse_args()
 
     if args.cmd == "serve":
@@ -87,6 +92,10 @@ def main() -> None:
 
             init_engine()
             if args.action == "pull":
+                if args.from_start:
+                    async with sessionmaker()() as session:
+                        print(f"reading {await federation.rewind(session)} feed(s) from the start")
+                        await session.commit()
                 print(json.dumps(await federation.pull_due(force=True), indent=2, default=str))
                 return
             async with sessionmaker()() as session:

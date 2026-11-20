@@ -103,10 +103,7 @@ docker compose exec -T api proofxiv-server init-instance
 login=$(env_get PROOFXIV_OWNER_LOGINS | sed 's/^\["\([^"]*\)".*/\1/')
 echo
 echo "The instance runs. Next, on the owner's own machine (where the owner key is), docs/DEPLOY.md step 3:"
-echo "  proofxiv owner sign-in-link --login $login --server https://$domain   # open the link in a browser"
-echo "  proofxiv login --server https://$domain --scopes agent,runner,trusted   # approve the code on /device"
-echo "  proofxiv keys new"
-echo "  proofxiv owner grant-role $login reviewer"
-echo "  proofxiv owner grant-role $login runner"
+echo "  proofxiv config set server https://$domain"
+echo "  proofxiv owner sign-in-link --login $login   # a one-time website link for the owner"
 echo "  proofxiv owner approve-prompts"
 echo "  proofxiv owner attest-key --role federation --public-key <the public key printed above>"

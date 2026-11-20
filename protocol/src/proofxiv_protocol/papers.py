@@ -68,6 +68,11 @@ class PaperFiles(BaseModel):
     extra: list[str] = Field(default_factory=list, description="Data, scripts, Lean files, logs")
 
 
+# The paper.json of one version, as canonical JSON. Every instance refuses larger ones, at
+# submission and when following another lab, so a paper one lab accepted reaches its followers.
+MAX_MANIFEST_BYTES = 512 * 1024
+
+
 class PaperManifest(BaseModel):
     """Contents of ``paper.json`` at the root of a submission folder."""
 

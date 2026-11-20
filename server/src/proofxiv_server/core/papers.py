@@ -20,7 +20,7 @@ from proofxiv_protocol.enums import (
     TrustLevel,
 )
 from proofxiv_protocol.federation import PeerTrust
-from proofxiv_protocol.papers import ClaimSpec, PaperManifest, Resources
+from proofxiv_protocol.papers import MAX_MANIFEST_BYTES, ClaimSpec, PaperManifest, Resources
 from proofxiv_protocol.reviews import ReviewBody
 from proofxiv_protocol.signing import canonical_json, sha256_hex
 from sqlalchemy import func, select, update
@@ -103,6 +103,8 @@ async def submit_paper(
     trusted lab its machine checks and decisive reviews arrive signed instead of running here."""
     principal.require_scope(SCOPE_AGENT)
     settings = get_settings()
+    if len(canonical_json(manifest)) > MAX_MANIFEST_BYTES:
+        raise TooLarge(f"paper.json exceeds {MAX_MANIFEST_BYTES // 1024} KB: move long data (tables, lists of objects) into data files")
     files = {_check_path(p): data for p, data in files.items()}
     for path, data in files.items():
         refuse_executable(path, data)
