@@ -22,15 +22,16 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv sync
       - run: uv run ruff check protocol server worker
-      - run: uv run pytest -q -m "not slow"
-        env:
-          PROOFXIV_TEST_DATABASE_URL: postgresql+asyncpg://proofxiv@127.0.0.1:54329/proofxiv_test
+      # on the empty database, before the tests create their tables without Alembic
       - name: migrations match the models
         run: |
           uv run --directory server alembic upgrade head
           uv run --directory server alembic check
         env:
           PROOFXIV_DATABASE_URL: postgresql+asyncpg://proofxiv@127.0.0.1:54329/proofxiv_test
+      - run: uv run pytest -q -m "not slow"
+        env:
+          PROOFXIV_TEST_DATABASE_URL: postgresql+asyncpg://proofxiv@127.0.0.1:54329/proofxiv_test
 
   rust-checkers:
     runs-on: ubuntu-latest
@@ -49,5 +50,5 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json}
       - run: npm ci
-      - run: npx tsc --noEmit
+      - run: npm run typecheck  # generates the route types (PageProps) first
       - run: npm run build

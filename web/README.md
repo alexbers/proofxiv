@@ -72,7 +72,7 @@ cd proofxiv
 ```bash
 npm run build          # production-сборка (API во время сборки не нужен)
 npm run start          # http://127.0.0.1:3000
-npm run typecheck      # tsc --noEmit
+npm run typecheck      # next typegen (типы маршрутов, PageProps) + tsc --noEmit
 npm run lint           # ESLint (eslint-config-next)
 ```
 
